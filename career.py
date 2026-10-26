@@ -79,6 +79,39 @@ PARTY_COLOURS = {
 
 
 
+
+# Fictional vote-intention baseline weights: deliberately invented game data,
+# not current polling, a forecast, or a statistically calibrated model.
+POLLING_BASELINE = {
+    "Labour": 25.0, "Conservative": 20.0, "Reform UK": 18.0,
+    "Liberal Democrats": 13.0, "Green Party": 9.0, "Your Party": 4.0,
+    "Independent": 3.0, "SNP": 3.5, "Plaid Cymru": 1.8,
+    "Restore Britain": 1.2, "Democratic Unionist Party (DUP)": 0.7,
+    "Sinn Féin": 0.7, "Alliance Party of Northern Ireland": 0.5,
+    "Social Democratic and Labour Party (SDLP)": 0.5,
+    "Ulster Unionist Party (UUP)": 0.3, "Traditional Unionist Voice (TUV)": 0.2,
+}
+POLLING_ACTIONS = [
+    {
+        "id": "poll_national_tour", "label": "Launch a national campaign tour",
+        "description": "Visit several regions, give interviews and push your party's message. The in-game polling shift is fictional and not guaranteed to last.",
+        "poll_shift": 1.4,
+        "effects": {"public_profile": 4, "campaign_readiness": 5, "constituency_support": 1},
+    },
+    {
+        "id": "poll_policy_launch", "label": "Launch a major policy announcement",
+        "description": "Put forward a clear proposal and give journalists a focused policy story.",
+        "poll_shift": 1.0,
+        "effects": {"policy_expertise": 3, "public_profile": 2, "party_trust": 1},
+    },
+    {
+        "id": "poll_voter_roundtable", "label": "Hold a national voter roundtable",
+        "description": "Listen to fictional voters and adjust your campaign priorities. This gives a small game-only polling nudge.",
+        "poll_shift": 0.6,
+        "effects": {"integrity": 2, "policy_expertise": 1, "campaign_readiness": 3},
+    },
+]
+
 INBOX_CASES = [
     {
         "id": "gp_access", "priority": "public_services",
@@ -380,6 +413,14 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "division_by_session": {},
         "votes_by_session": {},
         "vote_history": [],
+        "voting_intention": _initial_voting_intention(
+            party if party in DIVISION_DATA["party_names"] else "Labour",
+            (name or "Alex Morgan").strip()[:70],
+            constituency,
+        ),
+        "polling_history": [],
+        "polling_baseline": None,
+        "polling_last_change": 0.0,
         "history": [{
             "year": 1,
             "term": 1,
@@ -450,6 +491,8 @@ def _profile():
     p.setdefault("votes_by_session", {})
     p.setdefault("vote_history", [])
     p.setdefault("history", [])
+    # Add the fictional polling series to careers saved before this feature.
+    _ensure_polling_state(p)
     # Upgrade votes saved before the full House model was introduced. This
     # avoids showing the old 100-point result or missing total_seats key after
     # a player refreshes the app mid-session.
@@ -1378,6 +1421,12 @@ def _hold_election(p):
         + .08 * stats["parliamentary_influence"]
         + .10 * stats.get("campaign_readiness", 30)
     )
+    polls = _ensure_polling_state(p)
+    party = p.get("party", "Labour")
+    party_vote_share = float(polls.get(party, 0))
+    polling_leader = max(polls, key=polls.get)
+    polling_effect = max(-3.5, min(3.5, (party_vote_share - 20.0) * 0.12))
+    score = round(score + polling_effect, 1)
     margin = round(score + rng.uniform(-8, 8), 1)
     won = margin >= 45
     result = {
@@ -1387,6 +1436,10 @@ def _hold_election(p):
         "won": won,
         "threshold": 45,
         "campaign_readiness": int(stats.get("campaign_readiness", 30)),
+        "party_vote_share": round(party_vote_share, 1),
+        "polling_leader": polling_leader,
+        "polling_snapshot": dict(polls),
+        "polling_effect": round(polling_effect, 1),
     }
     p["election_result"] = result
     if won:
@@ -1395,7 +1448,10 @@ def _hold_election(p):
         p["stats"]["party_trust"] = _clip(p["stats"]["party_trust"] + 1)
         text = f"Re-elected in {p['constituency']}. Your career continues into a new Parliament."
         if p["role"] == "prime_minister":
-            government_score = .55 * stats["party_trust"] + .45 * stats["public_profile"] + rng.uniform(-12, 12)
+            opposition_leader_share = max((share for candidate, share in polls.items() if candidate != party), default=0.0)
+            polling_gap = party_vote_share - opposition_leader_share
+            national_mood_effect = max(-5.0, min(5.0, polling_gap * 0.45))
+            government_score = .55 * stats["party_trust"] + .45 * stats["public_profile"] + national_mood_effect + rng.uniform(-12, 12)
             if government_score < 50:
                 p["role"] = "mp"
                 p["stats"]["party_trust"] = _clip(p["stats"]["party_trust"] - 8)
@@ -1417,6 +1473,7 @@ def _advance(p):
     used = _current_actions(p)
     if len(used) < ACTIONS_PER_SESSION:
         return
+    _advance_voting_intention(p)
     if int(p["career_session"]) < SESSIONS_PER_YEAR:
         p["career_session"] = int(p["career_session"]) + 1
         p["last_event"] = f"Session {p['career_session']} begins. Choose two actions to advance your career."
@@ -1439,6 +1496,263 @@ def _advance(p):
             pass
     st.session_state.career_profile = p
     st.rerun()
+
+
+def _normalise_poll_shares(shares):
+    """Keep fictional national vote intention non-negative and summing to 100%."""
+    cleaned = {str(party): max(0.01, float(value)) for party, value in shares.items()}
+    total = sum(cleaned.values())
+    if total <= 0:
+        raise ValueError("Voting-intention shares must contain a positive total.")
+    result = {party: round(value / total * 100, 1) for party, value in cleaned.items()}
+    residue = round(100.0 - sum(result.values()), 1)
+    leader = max(result, key=result.get)
+    result[leader] = round(result[leader] + residue, 1)
+    return result
+
+
+def _initial_voting_intention(party="Labour", name="MP", constituency="Westminster"):
+    """Create a stable but varied fictional polling baseline for a new career."""
+    mix = sum((index + 1) * ord(char) for index, char in enumerate(f"{name}|{constituency}|{party}"))
+    rng = random.Random(84721 + mix)
+    baseline = dict(POLLING_BASELINE)
+    for candidate in DIVISION_DATA["party_names"]:
+        baseline.setdefault(candidate, 0.25)
+    shares = {}
+    for candidate, base in baseline.items():
+        wiggle = rng.uniform(-2.2, 2.2) if base >= 8 else rng.uniform(-0.45, 0.45)
+        shares[candidate] = max(0.1, base + wiggle)
+    if party not in shares:
+        shares[party] = 0.5
+    return _normalise_poll_shares(shares)
+
+
+def _record_poll_snapshot(p, label):
+    """Save a polling wave for this session, replacing its previous chart point."""
+    polls = dict(p.get("voting_intention", {}))
+    session_id = f"{int(p.get('career_term', 1))}:{int(p.get('career_year', 1))}:{int(p.get('career_session', 1))}"
+    history = p.setdefault("polling_history", [])
+    snapshot = {
+        "term": int(p.get("career_term", 1)),
+        "year": int(p.get("career_year", 1)),
+        "session": int(p.get("career_session", 1)),
+        "session_id": session_id,
+        "label": str(label),
+        "polls": polls,
+    }
+    if history and history[-1].get("session_id") == session_id:
+        history[-1] = snapshot
+    else:
+        history.append(snapshot)
+    p["polling_history"] = history[-45:]
+
+
+def _ensure_polling_state(p):
+    """Migrate old saves and ensure all selectable parties have a polling share."""
+    current = p.get("voting_intention")
+    if not isinstance(current, dict) or not current:
+        current = _initial_voting_intention(
+            p.get("party", "Labour"), p.get("name", "MP"), p.get("constituency", "Westminster")
+        )
+    else:
+        current = dict(current)
+        for candidate, value in POLLING_BASELINE.items():
+            current.setdefault(candidate, max(0.1, value))
+        for candidate in DIVISION_DATA["party_names"]:
+            current.setdefault(candidate, 0.25)
+    p["voting_intention"] = _normalise_poll_shares(current)
+    p.setdefault("polling_history", [])
+    if not isinstance(p.get("polling_baseline"), dict) or not p["polling_baseline"]:
+        p["polling_baseline"] = dict(p["voting_intention"])
+    if not p["polling_history"]:
+        _record_poll_snapshot(p, "Starting poll")
+    return p["voting_intention"]
+
+
+def _shift_party_poll(p, party, delta):
+    """Shift a party's invented poll share and rebalance all other parties to 100%."""
+    polls = _ensure_polling_state(p)
+    if party not in polls:
+        polls[party] = 0.25
+        polls = _normalise_poll_shares(polls)
+    before = float(polls.get(party, 0))
+    after = max(0.2, min(65.0, before + float(delta)))
+    rest = {name: share for name, share in polls.items() if name != party}
+    rest_total = sum(rest.values())
+    remaining_total = max(0.0, 100.0 - after)
+    if rest_total <= 0:
+        rest = {name: 1.0 for name in rest}
+        rest_total = sum(rest.values())
+    shifted = {name: value / rest_total * remaining_total for name, value in rest.items()}
+    shifted[party] = after
+    p["voting_intention"] = _normalise_poll_shares(shifted)
+    return round(float(p["voting_intention"].get(party, 0)) - before, 1)
+
+
+def _advance_voting_intention(p):
+    """Add a deliberately noisy game-only polling wave after each parliamentary session."""
+    polls = _ensure_polling_state(p)
+    party = p.get("party", "Labour")
+    stats = p.get("stats", {})
+    seed = (
+        84721
+        + sum((index + 1) * ord(char) for index, char in enumerate(f"{p.get('name', 'MP')}|{p.get('constituency', '')}"))
+        + int(p.get("career_term", 1)) * 1901
+        + int(p.get("career_year", 1)) * 419
+        + int(p.get("career_session", 1)) * 103
+    )
+    rng = random.Random(seed)
+    updated = {}
+    for candidate, current in polls.items():
+        volatility = 1.2 if current >= 8 else 0.35
+        updated[candidate] = max(0.1, float(current) + rng.uniform(-volatility, volatility))
+    player_nudge = (
+        (float(stats.get("party_trust", 50)) - 50) * 0.012
+        + (float(stats.get("public_profile", 50)) - 50) * 0.009
+        + (float(stats.get("integrity", 50)) - 50) * 0.004
+        + (float(stats.get("campaign_readiness", 30)) - 30) * 0.008
+    )
+    updated[party] = updated.get(party, 0.25) + max(-1.25, min(1.25, player_nudge))
+    p["voting_intention"] = _normalise_poll_shares(updated)
+    player_share = float(p["voting_intention"].get(party, 0))
+    baseline_share = float(p.get("polling_baseline", {}).get(party, player_share))
+    change = round(player_share - baseline_share, 1)
+    p["polling_last_change"] = change
+    label = f"Term {p.get('career_term', 1)} · Year {p.get('career_year', 1)} · Session {p.get('career_session', 1)}"
+    _record_poll_snapshot(p, label)
+    return change
+
+
+def _take_polling_action(p, action):
+    """Spend one career-action slot on a national campaign activity."""
+    used = _current_actions(p)
+    if len(used) >= ACTIONS_PER_SESSION or action["id"] in used:
+        return
+    effects = action.get("effects", {})
+    _apply_effects(p, effects)
+    used.append(action["id"])
+    change = _shift_party_poll(p, p.get("party", "Labour"), action.get("poll_shift", 0))
+    _record_poll_snapshot(p, f"{action['label']} · Term {p.get('career_term', 1)} / Year {p.get('career_year', 1)}")
+    summary = _effect_summary(effects)
+    narrative = f"{action['description']} Voting intention for {p.get('party', 'your party')} shifts by {change:+.1f} percentage points in the fictional poll."
+    if summary:
+        narrative += f" Career effects: {summary}."
+    _record(p, action["label"], narrative)
+    p["last_event"] = f"{action['label']}: {change:+.1f} percentage points in fictional voting intention."
+    p["polling_last_change"] = change
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _render_polling_tab(p):
+    """Display fictional national vote intention and campaign actions."""
+    polls = _ensure_polling_state(p)
+    party = p.get("party", "Labour")
+    baseline = p.get("polling_baseline", polls)
+    player_share = float(polls.get(party, 0))
+    change = round(player_share - float(baseline.get(party, player_share)), 1)
+    leader = max(polls, key=polls.get)
+    sorted_rows = sorted(polls.items(), key=lambda item: item[1], reverse=True)
+    current_df = pd.DataFrame([
+        {"Party": name, "Vote intention (%)": value,
+         "Change from start (pp)": round(value - float(baseline.get(name, value)), 1)}
+        for name, value in sorted_rows
+    ])
+    st.markdown("## General-election voting intention")
+    st.warning(
+        "FICTIONAL GAME POLLING — the figures are invented and deliberately unreliable. "
+        "They are not real polling, a real election forecast, or a statistically accurate model."
+    )
+    st.caption("National vote intention · shifts after parliamentary sessions and campaign actions · shares total 100%")
+    metrics = st.columns(4, gap="medium")
+    metrics[0].metric(f"{party} voting intention", f"{player_share:.1f}%", f"{change:+.1f} pp since start")
+    metrics[1].metric("Current polling leader", leader, f"{polls[leader]:.1f}% in the game")
+    metrics[2].metric("Polling waves", len(p.get("polling_history", [])))
+    metrics[3].metric(
+        "Sessions to election",
+        max(0, (ELECTION_AFTER - int(p.get("career_year", 1))) * SESSIONS_PER_YEAR
+            + SESSIONS_PER_YEAR - int(p.get("career_session", 1))),
+    )
+
+    left, right = st.columns([1.15, 1], gap="large")
+    with left:
+        st.markdown("### Current voting intention")
+        bar_frame = current_df.rename(columns={"Vote intention (%)": "Share"})
+        chart = px.bar(
+            bar_frame, x="Share", y="Party", color="Party", orientation="h",
+            color_discrete_map=PARTY_COLOURS,
+            hover_data={"Change from start (pp)": True, "Share": ":.1f"},
+            text="Share",
+        )
+        chart.update_traces(texttemplate="%{text:.1f}%", textposition="outside", cliponaxis=False, marker_line_width=0)
+        chart.update_layout(
+            height=590, showlegend=False, margin=dict(l=8, r=35, t=8, b=10),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#263243", size=12),
+            xaxis=dict(title="Vote intention (%)", range=[0, max(30, float(current_df["Vote intention (%)"].max()) * 1.25)], gridcolor="#e1e7ee"),
+            yaxis=dict(title="", categoryorder="total ascending"),
+        )
+        st.plotly_chart(chart, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+    with right:
+        st.markdown("### Polling trend")
+        history = list(p.get("polling_history", []))
+        if len(history) >= 2:
+            trend_parties = [name for name, _ in sorted_rows[:5]]
+            if party not in trend_parties:
+                trend_parties.append(party)
+            trend_rows = []
+            for index, wave in enumerate(history):
+                for trend_party in trend_parties:
+                    if trend_party in wave.get("polls", {}):
+                        trend_rows.append({
+                            "Wave": index + 1,
+                            "Poll": wave.get("label", f"Wave {index + 1}"),
+                            "Party": trend_party,
+                            "Vote intention (%)": wave["polls"][trend_party],
+                        })
+            trend_frame = pd.DataFrame(trend_rows)
+            trend = px.line(
+                trend_frame, x="Wave", y="Vote intention (%)", color="Party", markers=True,
+                color_discrete_map=PARTY_COLOURS,
+                hover_data={"Poll": True, "Wave": True, "Vote intention (%)": ":.1f"},
+            )
+            trend.update_traces(line=dict(width=2.5))
+            trend.update_layout(
+                height=460, margin=dict(l=8, r=16, t=8, b=10),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#263243", size=11),
+                xaxis=dict(title="In-game polling wave", gridcolor="#e1e7ee"),
+                yaxis=dict(title="Vote intention (%)", rangemode="tozero", gridcolor="#e1e7ee"),
+                legend=dict(title="Party", orientation="h", yanchor="bottom", y=-0.22, xanchor="left", x=0),
+            )
+            st.plotly_chart(trend, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+        else:
+            st.info("Your first polling trend appears after the next parliamentary session.")
+        st.markdown("### What moves the fictional poll?")
+        st.write("Campaign actions, party trust, public profile, integrity and campaign readiness gently affect your party's share. Random shocks move every party.")
+        st.caption("These effects are exaggerated game rules, not polling science.")
+
+    st.markdown("### Player campaign actions")
+    st.caption("Each activity uses one career-action slot and can change fictional voting intention immediately.")
+    used = _current_actions(p)
+    remaining = max(0, ACTIONS_PER_SESSION - len(used))
+    action_cols = st.columns(len(POLLING_ACTIONS), gap="medium")
+    for col, action in zip(action_cols, POLLING_ACTIONS):
+        with col:
+            with st.container(border=True):
+                st.markdown(f"**{action['label']}**")
+                st.write(action["description"])
+                st.caption(f"{_effect_summary(action['effects'])} · nominal polling nudge {action['poll_shift']:+.1f} pp before rebalancing")
+                st.button(
+                    "Take this action",
+                    key=f"poll_action_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}",
+                    type="primary" if action["id"] not in used and remaining > 0 else "secondary",
+                    disabled=remaining <= 0 or action["id"] in used,
+                    use_container_width=True,
+                    on_click=_take_polling_action,
+                    args=(p, action),
+                )
+    st.caption("Actions share your two-slot budget with constituency work, policy work, networking and media decisions.")
 
 
 def _normalise_seat_name(name):
@@ -1757,7 +2071,7 @@ def _render_parliament_tab():
 
 def _set_active_tab(tab):
     """Switch the main navigation before Streamlit rebuilds the widgets."""
-    if tab in {"Desk", "Nation", "Plans", "Press", "Parliament"}:
+    if tab in {"Desk", "Nation", "Plans", "Press", "Parliament", "Polling"}:
         st.session_state["mp_active_nav"] = tab
 
 
@@ -1769,7 +2083,7 @@ def render():
     used = _current_actions(p)
     remaining = max(0, ACTIONS_PER_SESSION - len(used))
     session_key = _session_key(p)
-    nav_options = ["Desk", "Nation", "Plans", "Press", "Parliament"]
+    nav_options = ["Desk", "Nation", "Plans", "Press", "Parliament", "Polling"]
     st.session_state.setdefault("mp_active_nav", "Desk")
 
     safe_name = html.escape(str(p.get("name", "MP")))
@@ -1822,6 +2136,7 @@ def render():
         "Plans": "📜 Plans & bills",
         "Press": "📰 Press & party",
         "Parliament": "🏛️ Parliament",
+        "Polling": "📊 Voting intention",
     }
     for nav_col, option in zip(nav_cols, nav_options):
         with nav_col:
@@ -1905,6 +2220,16 @@ def render():
         summary_cols[1].metric("Final standing", f"{legacy_score}/100")
         summary_cols[2].metric("Years served", int(p.get("career_total_years", 0)))
         summary_cols[3].metric("Promotions", len(p.get("promotion_log", [])))
+        election_record = p.get("election_result") or {}
+        if election_record:
+            st.markdown(
+                f"**Final fictional voting intention:** {html.escape(str(p.get('party', 'Your party')))} {float(election_record.get('party_vote_share', 0)):.1f}% · "
+                f"Polling leader: {html.escape(str(election_record.get('polling_leader', 'Not recorded')))}"
+            )
+            st.caption(
+                f"Polling contribution to your constituency result: {float(election_record.get('polling_effect', 0)):+.1f} points. "
+                "This is an invented game mechanic, not an election prediction."
+            )
         st.caption(f"General elections won: {max(0, int(p.get('seats_won', 1)) - 1)} · Allies: {len(p.get('allies', []))} · Rivals: {len(p.get('rivals', []))} · Final standards risk: {int(p.get('ethics_risk', 0))}/5")
         with st.expander("Career record", expanded=True):
             for item in reversed(p.get("history", [])[-20:]):
@@ -2450,8 +2775,8 @@ def render():
     elif active_tab == "Parliament":
         _render_parliament_tab()
 
-    elif active_tab == "Parliament":
-        _render_parliament_tab()
+    elif active_tab == "Polling":
+        _render_polling_tab(p)
 
     if len(used) >= ACTIONS_PER_SESSION and not p.get("game_over"):
         st.divider()
