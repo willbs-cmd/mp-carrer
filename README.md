@@ -23,6 +23,8 @@ This repository is independent of the UK Chancellor Simulator repository. The Ch
 - Each parliamentary session gives you **one featured Commons vote** and **two career actions**.
 - Three fictional constituent cases arrive in a session inbox. Investigating, raising an issue in Parliament, or coordinating local partners each uses one of your two career-action slots; matching your chosen local priority gives a small bonus.
 - **Phase 2 — Westminster politics:** respond to a fictional political news cycle; balance the party leadership, backbench colleagues, local party and cross-party relationships; build allies or rivals; manage parliamentary standards risk; and improve campaign readiness through constituency canvassing.
+- Draft a **Private Member's Bill** and try to progress it through sponsorship, second reading, committee, report stage, third reading and a simulated Royal Assent or defeat.
+- Launch a **constituency petition**, organise signature drives and present it to a minister or relevant public body when it reaches the game's signature threshold.
 - **Phase 3 — Government and leadership:** ministers manage a portfolio, choose a policy target, improve delivery ratings through departmental actions, and complete milestones for bonuses. Stronger delivery can be required for promotion to senior office.
 - Prime Ministers can carry out Cabinet reshuffles with political consequences. Eligible senior politicians can contest the fictional party leadership; incumbents face a confidence ballot. Annual Westminster school-report cards grade your performance, and losing your seat generates a final career report.
 - Career decisions and news responses use the same two-action budget per parliamentary session, so you must balance local casework, Commons work, political relationships and government delivery.
@@ -36,9 +38,10 @@ These are simplified fictional game mechanics, not a prediction of real appointm
 
 ## Project files
 
-- `app.py`: Streamlit app entry point.
+- `app.py`: Streamlit app entry point, responsive Westminster portal styling, and party-colour accents.
+- The interface uses party-specific accents for the selected UK party alongside a multi-colour stat-card palette. The Commons timeline, buttons and progress indicators follow the active party theme.
 - `career.py`: career gameplay, fictional news events, faction relationships, ethics risk, constituency campaigning, Commons voting, ministerial portfolios, leadership contests, Cabinet reshuffles and annual/final report cards.
-- `tests/test_gameplay.py`: regression smoke tests for career state, news-event effects, party tallies, portfolios and report cards.
+- `tests/test_gameplay.py`: regression smoke tests for career state, news-event effects, party tallies, portfolios, report cards, Private Members' Bills and petitions.
 - `content_store.py`: loads editable JSON data.
 - `data/career_content.json`: career roles, action choices, promotion rules and the campaign-readiness attribute.
 - `data/constituencies_2024.json`: 650 constituency names, codes and nations from the July 2024 Westminster boundary edition.
