@@ -21,6 +21,7 @@ This repository is independent of the UK Chancellor Simulator repository. The Ch
 
 - Choose an MP name, party, constituency, starting ambition and local campaign priority.
 - Each parliamentary session gives you **one featured Commons vote** and **two career actions**.
+- Three fictional constituent cases arrive in a session inbox. Investigating, raising an issue in Parliament, or coordinating local partners each uses one of your two career-action slots; matching your chosen local priority gives a small bonus.
 - Following the party whip usually builds party trust. Rebelling can raise your public profile and integrity while making promotion harder.
 - Career actions develop constituency support, party trust, parliamentary influence, public profile, policy expertise and integrity.
 - Three sessions make a career year. A general election takes place after five years. Win your seat to continue; lose it and that career ends.
