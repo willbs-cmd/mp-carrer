@@ -1,5 +1,7 @@
 """Smoke tests for the standalone MP Career gameplay systems."""
+import json
 import unittest
+from pathlib import Path
 
 import career
 
@@ -76,13 +78,38 @@ class CareerGameplayTests(unittest.TestCase):
         for bill in career.PRIVATE_MEMBERS_BILLS.values():
             self.assertIn(bill["priority"], career.MANDATES)
 
-    def test_uk_party_tally_weights_are_complete_and_balanced(self):
-        self.assertEqual(set(career.SIMULATED_PARTY_WEIGHTS), set(career.DIVISION_DATA["party_names"]))
-        self.assertEqual(sum(career.SIMULATED_PARTY_WEIGHTS.values()), 100)
+    def test_commons_vote_uses_all_650_seats(self):
+        self.assertEqual(sum(career.SIMULATED_PARTY_SEATS.values()), 650)
+        self.assertEqual(career.SIMULATED_TOTAL_SEATS, 650)
+        self.assertEqual(career.SIMULATED_PARTY_SEATS["Labour"], 404)
         result = career._simulate_division_result(self.profile, career.DIVISIONS[0], "Aye")
         self.assertIn(result["result"], {"Passed", "Rejected"})
-        self.assertEqual(result["ayes"] + result["noes"], 100)
-        self.assertEqual(result["abstentions"], 0)
+        self.assertEqual(result["total_seats"], 650)
+        self.assertEqual(result["ayes"] + result["noes"] + result["abstentions"], 650)
+        self.assertGreater(result["votes_cast"], 600)
+        self.assertEqual(result["non_voting"], 8)
+
+    def test_player_in_a_party_with_no_current_seats_does_not_create_a_651st_seat(self):
+        self.profile["party"] = "Your Party"
+        result = career._simulate_division_result(self.profile, career.DIVISIONS[0], "No")
+        self.assertEqual(result["total_seats"], 650)
+        self.assertEqual(result["ayes"] + result["noes"] + result["abstentions"], 650)
+
+    def test_parliament_composition_and_map_have_all_uk_seats(self):
+        composition = career.PARLIAMENT_COMPOSITION
+        self.assertEqual(sum(row["seats"] for row in composition["commons"]["seats"]), 650)
+        self.assertEqual(sum(row["seats"] for row in composition["lords"]["seats"]), 797)
+        geo_path = Path(__file__).resolve().parents[1] / "data" / "constituencies_2024.geojson"
+        geojson = json.loads(geo_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(geojson["features"]), 650)
+        codes = [feature["properties"]["PCON24CD"] for feature in geojson["features"]]
+        self.assertEqual(len(set(codes)), 650)
+
+    def test_party_name_normalisation_for_map_legend(self):
+        self.assertEqual(career._canonical_party_name("Conservative"), "Conservative")
+        self.assertEqual(career._canonical_party_name("Scottish National Party"), "SNP")
+        self.assertEqual(career._canonical_party_name("Liberal Democrat"), "Liberal Democrats")
+        self.assertEqual(career._canonical_party_name("Alliance"), "Alliance Party of Northern Ireland")
 
     def test_annual_report_is_created_once_per_year(self):
         self.profile["actions_by_session"] = {"1:1:1": ["question"], "1:1:2": ["casework", "media"]}
