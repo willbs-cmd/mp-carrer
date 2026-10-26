@@ -52,3 +52,8 @@ Phase 3 adds fictional department portfolios and policy targets in `career.py`. 
 - `constituencies_2024.geojson` contains the 650 generalised Westminster constituency geometries from the July 2024 boundary edition. Source: [Open Innovations constituency boundary GeoJSON](https://github.com/open-innovations/constituencies/blob/8e37a221cdfecdde9de0896a58bec9f57278f522/src/_data/geojson/Westminster_Parliamentary_Constituencies_July_2024_Boundaries_UK_BUC.geojson), based on the July 2024 UK constituency boundary data.
 - The Parliament tab uses the public [UK Parliament Members API](https://members-api.parliament.uk/index.html) for current MP/party labels on the map. The online map is informational, not the game's fictional player-seat assignment or a prediction of election results.
 - Commons division results use the 650-seat snapshot as the starting House arithmetic, treating the Speaker and non-sitting Sinn Féin MPs as non-voting in the simplified tally. Whip assignments are still fictional game content.
+
+
+## Fictional general-election voting intention
+
+Voting intention is entirely invented game data in `career.py`, stored with each save under `voting_intention`, `polling_baseline` and `polling_history`. It is intentionally not an accurate poll, political forecast or model. The game produces small random polling moves after parliamentary sessions and lets players spend career-action slots on fictional national campaign activities. A small, capped polling effect is included in the simulated constituency election score. Do not present these figures outside the game as current public opinion.
