@@ -1412,9 +1412,297 @@ def _advance(p):
     st.rerun()
 
 
+def _normalise_seat_name(name):
+    """Normalise constituency names for safe matching between official datasets."""
+    text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", text.casefold())
+
+
+def _canonical_party_name(name):
+    """Map Parliament API variants to consistent labels used by the dashboard."""
+    raw = str(name or "").strip()
+    text = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii").casefold()
+    if "sinn fein" in text:
+        return "Sinn Féin"
+    if "labour" in text:
+        return "Labour"
+    if "conservative" in text and "independent" in text:
+        return "Conservative Independent"
+    if "conservative" in text:
+        return "Conservative"
+    if "liberal democrat" in text:
+        return "Liberal Democrats"
+    if "reform uk" in text or text == "reform":
+        return "Reform UK"
+    if "green" in text:
+        return "Green Party"
+    if "scottish national" in text or text == "snp":
+        return "SNP"
+    if "plaid cymru" in text:
+        return "Plaid Cymru"
+    if "democratic unionist" in text or text == "dup":
+        return "Democratic Unionist Party (DUP)"
+    if "social democratic" in text or text == "sdlp":
+        return "Social Democratic and Labour Party (SDLP)"
+    if "ulster unionist" in text or text == "uup":
+        return "Ulster Unionist Party (UUP)"
+    if "alliance" in text:
+        return "Alliance Party of Northern Ireland"
+    if "your party" in text:
+        return "Your Party"
+    if "restore britain" in text:
+        return "Restore Britain"
+    if "traditional unionist" in text or text == "tuv":
+        return "Traditional Unionist Voice (TUV)"
+    if "speaker" in text and "lord" in text:
+        return "Lord Speaker"
+    if text == "speaker" or text == "spk":
+        return "Speaker"
+    if "crossbench" in text:
+        return "Crossbench"
+    if "non-affiliated" in text or "non affiliated" in text:
+        return "Non-affiliated"
+    if "bishop" in text or "lords spiritual" in text:
+        return "Bishops"
+    if "independent" in text:
+        return "Independent"
+    return raw or "Independent"
+
+
+def _fetch_commons_page(skip):
+    """Fetch one page of current Commons members from the official UK Parliament API."""
+    response = requests.get(
+        UK_PARLIAMENT_API,
+        params={"House": 1, "skip": int(skip), "take": 20},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+        raise ValueError("The Parliament API returned an unexpected member-list response.")
+    return payload
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def _current_commons_party_map():
+    """Return current constituency -> MP/party data from the official Members API."""
+    first = _fetch_commons_page(0)
+    total = int(first.get("totalResults", len(first.get("items", []))))
+    items = list(first.get("items", []))
+    offsets = list(range(20, total, 20))
+    if offsets:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            pages = list(executor.map(_fetch_commons_page, offsets))
+        for page in pages:
+            items.extend(page.get("items", []))
+
+    mapping = {}
+    for item in items:
+        member = item.get("value") or {}
+        membership = member.get("latestHouseMembership") or {}
+        membership_status = membership.get("membershipStatus") or {}
+        if membership.get("house") not in (None, 1):
+            continue
+        if membership.get("membershipEndDate"):
+            continue
+        if membership_status and not membership_status.get("statusIsActive", True):
+            continue
+        constituency = str(membership.get("membershipFrom") or "").strip()
+        if not constituency:
+            continue
+        key = _normalise_seat_name(constituency)
+        party_data = member.get("latestParty") or {}
+        mapping[key] = {
+            "constituency": constituency,
+            "mp": str(member.get("nameDisplayAs") or member.get("nameListAs") or "MP"),
+            "party": _canonical_party_name(party_data.get("name")),
+        }
+
+    # A full UK map should match almost all 650 constituencies. Avoid showing
+    # hundreds of grey seats if a partial API response or service error occurred.
+    if len(mapping) < 600:
+        raise RuntimeError(
+            f"The official feed returned only {len(mapping)} constituency memberships; "
+            "the map was not drawn from incomplete data."
+        )
+    return mapping, total
+
+
+@st.cache_data(show_spinner=False)
+def _load_constituency_geojson():
+    """Load the static, generalised ONS 2024 Westminster constituency boundaries."""
+    path = Path(__file__).resolve().parent / "data" / "constituencies_2024.geojson"
+    with path.open("r", encoding="utf-8") as handle:
+        geojson = json.load(handle)
+    if geojson.get("type") != "FeatureCollection" or len(geojson.get("features", [])) != 650:
+        raise ValueError("The bundled UK constituency geometry must contain 650 boundaries.")
+    return geojson
+
+
+def _bar_chart(frame, category, value, height):
+    """Create a restrained horizontal chart using each party's own colour."""
+    chart = px.bar(
+        frame,
+        x=value,
+        y=category,
+        color=category,
+        orientation="h",
+        color_discrete_map=PARTY_COLOURS,
+        text=value,
+        hover_data={category: True, value: True},
+    )
+    chart.update_traces(textposition="outside", cliponaxis=False, marker_line_width=0)
+    chart.update_layout(
+        height=height,
+        showlegend=False,
+        margin=dict(l=8, r=32, t=8, b=12),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#263243", size=12),
+        xaxis=dict(title="Members / seats", gridcolor="#e1e7ee", zeroline=False),
+        yaxis=dict(title="", categoryorder="total ascending"),
+    )
+    return chart
+
+
+def _render_parliament_tab():
+    """Show the Commons and Lords composition plus a live, interactive seat map."""
+    commons_rows = PARLIAMENT_COMPOSITION["commons"]["seats"]
+    lords_rows = PARLIAMENT_COMPOSITION["lords"]["seats"]
+    commons_total = int(PARLIAMENT_COMPOSITION["commons"]["total_seats"])
+    lords_total = int(PARLIAMENT_COMPOSITION["lords"]["eligible_members"])
+    commons_df = pd.DataFrame(commons_rows)
+    lords_df = pd.DataFrame(lords_rows)
+    commons_df = commons_df.rename(columns={"party": "Party", "seats": "Seats"})
+    lords_df = lords_df.rename(columns={"party": "Party / group", "seats": "Members"})
+
+    st.markdown("## Make-up of the UK Parliament")
+    st.caption(
+        f"Official party/group snapshot checked {PARLIAMENT_COMPOSITION['as_of']}. "
+        "The composition charts use the dated snapshot; the constituency map requests current MP affiliations from Parliament's Members API."
+    )
+    top = st.columns(4, gap="medium")
+    top[0].metric("Commons seats", f"{commons_total:,}")
+    top[1].metric("Majority threshold", f"{PARLIAMENT_COMPOSITION['commons']['majority_threshold']:,}")
+    top[2].metric("Largest Commons party", "Labour · 404")
+    top[3].metric("Eligible Lords members", f"{lords_total:,}")
+
+    commons_col, lords_col = st.columns(2, gap="large")
+    with commons_col:
+        st.markdown("### House of Commons")
+        st.caption("650 constituency seats, including the Speaker and non-sitting MPs as displayed in the official party list.")
+        commons_chart = _bar_chart(commons_df, "Party", "Seats", 565)
+        st.plotly_chart(commons_chart, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+        with st.expander("View Commons party totals", expanded=False):
+            st.dataframe(
+                commons_df.sort_values("Seats", ascending=False),
+                hide_index=True,
+                use_container_width=True,
+            )
+    with lords_col:
+        st.markdown("### House of Lords")
+        st.caption("Eligible members by party or group. Membership changes as appointments, retirements and other changes occur.")
+        lords_chart = _bar_chart(lords_df, "Party / group", "Members", 565)
+        st.plotly_chart(lords_chart, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+        with st.expander("View Lords group totals", expanded=False):
+            st.dataframe(
+                lords_df.sort_values("Members", ascending=False),
+                hide_index=True,
+                use_container_width=True,
+            )
+
+    st.markdown("## UK constituency map")
+    st.caption(
+        "Each shape is one of the 650 Westminster seats under the July 2024 boundaries. "
+        "Hover over a seat to see the constituency, current MP and current parliamentary party. "
+        "Use the mouse wheel to zoom and drag to move around the UK."
+    )
+    try:
+        with st.spinner("Loading current MP and party details from UK Parliament…"):
+            constituency_map, member_count = _current_commons_party_map()
+        geometry = _load_constituency_geojson()
+        rows = []
+        matched = 0
+        for feature in geometry["features"]:
+            properties = feature.get("properties") or {}
+            constituency = str(properties.get("PCON24NM", "Unknown constituency"))
+            code = str(properties.get("PCON24CD", ""))
+            current = constituency_map.get(_normalise_seat_name(constituency))
+            if current:
+                matched += 1
+                party_name = current["party"]
+                mp_name = current["mp"]
+            else:
+                party_name = "Vacant / no current MP"
+                mp_name = "No current MP matched by constituency name"
+            rows.append({
+                "code": code,
+                "constituency": constituency,
+                "party": party_name,
+                "mp": mp_name,
+            })
+        if matched < 600:
+            st.warning(f"Only {matched} of 650 constituencies matched the live membership feed; unmapped seats are shown in grey.")
+        seat_df = pd.DataFrame(rows)
+        seat_options = ["— Select a constituency —"] + sorted(seat_df["constituency"].tolist())
+        selected_seat = st.selectbox(
+            "Find a constituency",
+            seat_options,
+            key="parliament_find_seat",
+        )
+        if selected_seat != seat_options[0]:
+            chosen = seat_df.loc[seat_df["constituency"] == selected_seat].iloc[0]
+            st.info(
+                f"**{chosen['constituency']}** · {chosen['party']} · MP: {chosen['mp']}"
+            )
+        fig = px.choropleth_mapbox(
+            seat_df,
+            geojson=geometry,
+            locations="code",
+            featureidkey="properties.PCON24CD",
+            color="party",
+            color_discrete_map=PARTY_COLOURS,
+            hover_name="constituency",
+            hover_data={
+                "mp": True,
+                "party": True,
+                "code": True,
+                "constituency": False,
+            },
+            mapbox_style="open-street-map",
+            center={"lat": 54.55, "lon": -3.1},
+            zoom=3.25,
+            opacity=0.86,
+        )
+        fig.update_traces(marker_line_color="#ffffff", marker_line_width=0.45)
+        fig.update_layout(
+            height=720,
+            margin=dict(l=0, r=0, t=4, b=0),
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#263243"),
+            legend=dict(title="Current party", orientation="h", yanchor="bottom", y=-0.08, xanchor="left", x=0),
+        )
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            config={"displayModeBar": True, "scrollZoom": True, "responsive": True},
+        )
+        st.caption(
+            f"Live membership response contained {member_count:,} Commons members; {matched}/650 boundary names matched. "
+            "Geometry: ONS Westminster Parliamentary Constituencies, July 2024 (ultra-generalised version distributed by Open Innovations)."
+        )
+    except Exception as exc:
+        st.warning(
+            "The live constituency-party map could not be loaded right now. "
+            "The official Commons and Lords composition charts above remain available. "
+            "Retry by refreshing the app later."
+        )
+        st.caption(f"Map data source: UK Parliament Members API · {type(exc).__name__}")
+
+
 def _set_active_tab(tab):
     """Switch the main navigation before Streamlit rebuilds the widgets."""
-    if tab in {"Desk", "Nation", "Plans", "Press"}:
+    if tab in {"Desk", "Nation", "Plans", "Press", "Parliament"}:
         st.session_state["mp_active_nav"] = tab
 
 
@@ -1426,7 +1714,7 @@ def render():
     used = _current_actions(p)
     remaining = max(0, ACTIONS_PER_SESSION - len(used))
     session_key = _session_key(p)
-    nav_options = ["Desk", "Nation", "Plans", "Press"]
+    nav_options = ["Desk", "Nation", "Plans", "Press", "Parliament"]
     st.session_state.setdefault("mp_active_nav", "Desk")
 
     safe_name = html.escape(str(p.get("name", "MP")))
@@ -1472,12 +1760,13 @@ def render():
     if st.session_state.get("mp_active_nav") not in nav_options:
         st.session_state["mp_active_nav"] = "Desk"
     active_tab = st.session_state.get("mp_active_nav", "Desk")
-    nav_cols = st.columns(4, gap="small")
+    nav_cols = st.columns(len(nav_options), gap="small")
     nav_labels = {
         "Desk": "🏛️ Commons",
         "Nation": "🏠 Constituency",
         "Plans": "📜 Plans & bills",
         "Press": "📰 Press & party",
+        "Parliament": "🏛️ Parliament",
     }
     for nav_col, option in zip(nav_cols, nav_options):
         with nav_col:
@@ -1656,7 +1945,7 @@ def render():
                     st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
                     result = saved_vote.get("division_result")
                     if result:
-                        st.info(f"Simulated result: **{result['result']}** · Ayes {result['ayes']} – Noes {result['noes']} · Majority {result['majority']} game points.")
+                        st.info(f"Simulated result: **{result['result']}** · Ayes {result['ayes']:,} – Noes {result['noes']:,} · Not voting / abstaining {result['abstentions']:,} · Majority {result['majority']:,} across a {result['total_seats']}-seat House.")
                     if saved_vote.get("effects_summary"):
                         st.caption(f"Career effects: {saved_vote['effects_summary']}.")
                 else:
