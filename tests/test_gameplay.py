@@ -27,6 +27,29 @@ class CareerGameplayTests(unittest.TestCase):
             career._set_active_tab("Not a real section")
             self.assertEqual(career.st.session_state["mp_active_nav"], "Press")
 
+    def test_fictional_voting_intention_is_normalised_and_moves(self):
+        self.assertGreaterEqual(len(career.POLLING_BASELINE), 10)
+        self.assertGreaterEqual(len(career.POLLING_ACTIONS), 3)
+        self.assertTrue(set(career.POLLING_BASELINE).issuperset({"Labour", "Conservative", "Reform UK"}))
+        shares = self.profile["voting_intention"]
+        self.assertAlmostEqual(sum(shares.values()), 100.0, places=1)
+        career._ensure_polling_state(self.profile)
+        self.assertTrue(self.profile["polling_history"])
+        self.assertIn("polling_baseline", self.profile)
+        before = dict(self.profile["voting_intention"])
+        shifted = career._shift_party_poll(self.profile, "Labour", 1.4)
+        self.assertGreater(shifted, 0)
+        self.assertAlmostEqual(sum(self.profile["voting_intention"].values()), 100.0, places=1)
+        self.assertGreater(self.profile["voting_intention"]["Labour"], before["Labour"])
+        career._advance_voting_intention(self.profile)
+        self.assertAlmostEqual(sum(self.profile["voting_intention"].values()), 100.0, places=1)
+        self.assertLessEqual(len(self.profile["polling_history"]), 45)
+
+    def test_polling_actions_use_valid_career_attributes(self):
+        for action in career.POLLING_ACTIONS:
+            self.assertIn("poll_shift", action)
+            self.assertTrue(set(action.get("effects", {})).issubset(career.ATTRIBUTES), action["id"])
+
     def test_new_profile_has_phase_two_and_three_state(self):
         self.assertIn("campaign_readiness", self.profile["stats"])
         self.assertEqual(self.profile["stats"]["campaign_readiness"], 30)
