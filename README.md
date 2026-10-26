@@ -20,8 +20,9 @@ This repository is independent of the UK Chancellor Simulator repository. The Ch
 ## How to play
 
 - Choose an MP name, UK parliamentary party, constituency, starting ambition and local campaign priority. The party list includes the main Great Britain parties, Northern Ireland parties and independents.
-- The dashboard uses five clear section buttons: Commons, Constituency, Plans & bills, Press & party, and Parliament. The Parliament section shows the House of Commons and House of Lords party/group make-up plus an interactive map colouring all 650 constituencies by current MP party.
-- Each parliamentary session gives you **one featured Commons vote** and **two career actions**.
+- The dashboard uses six clear section buttons: Commons, Constituency, Plans & bills, Press & party, Parliament, and Voting intention. Parliament shows the Commons and Lords party/group make-up plus an interactive map colouring all 650 seats by current MP party. Voting intention is a fictional polling game with a party-share chart, polling trend, and campaign actions.
+- Each parliamentary session gives you **one featured Commons vote** and **two career actions**. Voting-intention waves change as sessions finish; campaign actions can influence the game poll, and the national vote-intention share contributes modestly to the simulated general-election outcome.
+- Voting intention is deliberately invented and unreliable. It is not a real poll, a forecast or an evidence-based model.
 - Three fictional constituent cases arrive in a session inbox. Investigating, raising an issue in Parliament, or coordinating local partners each uses one of your two career-action slots; matching your chosen local priority gives a small bonus.
 - **Phase 2 — Westminster politics:** respond to a fictional political news cycle; balance the party leadership, backbench colleagues, local party and cross-party relationships; build allies or rivals; manage parliamentary standards risk; and improve campaign readiness through constituency canvassing.
 - Draft a **Private Member's Bill** and try to progress it through sponsorship, second reading, committee, report stage, third reading and a simulated Royal Assent or defeat.
