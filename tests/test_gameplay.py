@@ -14,6 +14,17 @@ class CareerGameplayTests(unittest.TestCase):
             party="Labour",
         )
 
+    def test_navigation_uses_clear_named_sections(self):
+        from unittest.mock import patch
+
+        with patch.object(career.st, "session_state", {}):
+            career._set_active_tab("Nation")
+            self.assertEqual(career.st.session_state["mp_active_nav"], "Nation")
+            career._set_active_tab("Press")
+            self.assertEqual(career.st.session_state["mp_active_nav"], "Press")
+            career._set_active_tab("Not a real section")
+            self.assertEqual(career.st.session_state["mp_active_nav"], "Press")
+
     def test_new_profile_has_phase_two_and_three_state(self):
         self.assertIn("campaign_readiness", self.profile["stats"])
         self.assertEqual(self.profile["stats"]["campaign_readiness"], 30)
