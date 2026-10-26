@@ -1617,6 +1617,42 @@ def render():
                     st.caption(action["description"])
                     if st.button("Run campaign action", key=f"local_action_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}", disabled=remaining <= 0, use_container_width=True):
                         _resolve_network_action(p, action)
+            st.markdown("### 📣 Launch a constituency petition")
+            st.caption("Mobilise residents around a local issue. A petition needs 400 signatures before it can be presented to a minister or relevant public body. Launching, campaigning and presenting each use a career-action slot.")
+            petition = p.get("petition_campaign")
+            if isinstance(petition, dict) and petition.get("status") == "active":
+                with st.container(border=True):
+                    st.markdown(f"**{html.escape(str(petition['title']))}**")
+                    st.write(petition["description"])
+                    signatures = int(petition.get("signatures", 0))
+                    st.progress(min(1000, signatures) / 1000, text=f"{signatures:,}/1,000 signatures · {max(0, 400-signatures):,} needed to present")
+                    if petition.get("last_outcome"):
+                        st.caption(petition["last_outcome"])
+                    drive_col, present_col = st.columns(2, gap="small")
+                    with drive_col:
+                        if st.button("Run a signature drive", key=f"petition_drive_{session_key}", disabled=remaining <= 0 or "petition_signature_drive" in used, use_container_width=True):
+                            _run_petition_action(p, "drive")
+                    with present_col:
+                        ready_to_present = signatures >= 400
+                        if st.button("Present petition", key=f"petition_present_{session_key}", disabled=remaining <= 0 or "petition_present" in used or not ready_to_present, type="primary", use_container_width=True):
+                            _run_petition_action(p, "present")
+            else:
+                petition_ids = list(PETITION_TOPICS)
+                chosen_topic = st.selectbox(
+                    "Petition issue",
+                    petition_ids,
+                    format_func=lambda key: PETITION_TOPICS[key]["label"],
+                    key=f"petition_topic_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+                )
+                st.caption(PETITION_TOPICS[chosen_topic]["description"])
+                if st.button("Launch petition", key=f"petition_launch_{session_key}", disabled=remaining <= 0 or "launch_petition" in used, type="primary", use_container_width=True):
+                    _launch_constituency_petition(p, chosen_topic)
+            if p.get("petition_history"):
+                with st.expander("Previously presented petitions", expanded=False):
+                    for old_petition in reversed(p["petition_history"][-4:]):
+                        st.markdown(f"**{html.escape(str(old_petition.get('title', 'Petition')))}**")
+                        st.caption(f"{int(old_petition.get('signatures', 0)):,} signatures · Presented in term {old_petition.get('launched_term')}, year {old_petition.get('launched_year')}.")
+
             with st.container(border=True):
                 st.markdown("### Constituency casework record")
                 local_records = [entry for entry in p.get("history", []) if str(entry.get("title", "")).startswith("Inbox:")][-6:]
@@ -1630,6 +1666,89 @@ def render():
     elif active_tab == "Plans":
         st.markdown("## Policy and parliamentary plans")
         st.caption("Use your career actions to build expertise, work with colleagues and deliver your current responsibilities.")
+        st.markdown("### 🧾 Private Members' Bill office")
+        st.caption("Take an idea from a first draft through sponsorship, second reading, committee scrutiny, report stage and a final vote. This is a simplified fictional version of the parliamentary process, and each step uses one career-action slot.")
+        bill = _active_private_bill(p)
+        saved_bill = p.get("private_members_bill")
+        if bill:
+            stage_label = PRIVATE_BILL_STAGES.get(bill.get("stage"), bill.get("stage", "In progress"))
+            with st.container(border=True):
+                st.markdown("<div class='mp-overline'>BILL TRACKER · HOUSE OF COMMONS</div>", unsafe_allow_html=True)
+                st.markdown(f"### {html.escape(str(bill['label']))}")
+                st.write(bill["description"])
+                status_col, sponsor_col, evidence_col = st.columns(3, gap="medium")
+                status_col.metric("Current stage", stage_label)
+                sponsor_col.metric("Sponsors", f"{int(bill.get('sponsors', 0))}/3")
+                evidence_col.metric("Evidence prepared", f"{int(bill.get('evidence', 0))}%")
+                st.progress(min(100, int(bill.get("evidence", 0))) / 100, text="Evidence and scrutiny preparation")
+                if bill.get("last_outcome"):
+                    st.info(bill["last_outcome"])
+                bill_cols = st.columns(2, gap="medium")
+                if bill["stage"] == "drafting":
+                    with bill_cols[0]:
+                        st.markdown("**Build cross-party sponsorship**")
+                        st.caption("Seek colleagues willing to support your bill.")
+                        action_id = "bill_gather_sponsors"
+                        if st.button("Lobby for sponsors", key=f"bill_sponsors_{session_key}", disabled=remaining <= 0 or action_id in used, use_container_width=True):
+                            _private_bill_action(p, "sponsors")
+                    with bill_cols[1]:
+                        st.markdown("**Prepare evidence and drafting notes**")
+                        st.caption("Build the policy case before asking the House to consider it.")
+                        action_id = "bill_prepare_evidence"
+                        if st.button("Prepare bill evidence", key=f"bill_evidence_{session_key}", disabled=remaining <= 0 or action_id in used, use_container_width=True):
+                            _private_bill_action(p, "evidence")
+                    can_read = int(bill.get("sponsors", 0)) >= 2 and int(bill.get("evidence", 0)) >= 35
+                    if st.button("Seek a second reading", key=f"bill_second_reading_{session_key}", disabled=remaining <= 0 or "bill_second_reading" in used or not can_read, type="primary", use_container_width=True):
+                        _private_bill_action(p, "second_reading")
+                    if not can_read:
+                        st.caption("Requirement: at least 2 sponsors and 35% evidence prepared.")
+                elif bill["stage"] == "committee":
+                    with bill_cols[0]:
+                        st.markdown("**Take evidence and refine the bill**")
+                        st.caption("Committee scrutiny can expose weaknesses and strengthen the proposal.")
+                        if st.button("Prepare committee evidence", key=f"bill_committee_evidence_{session_key}", disabled=remaining <= 0 or "bill_committee_evidence" in used, use_container_width=True):
+                            _private_bill_action(p, "committee_evidence")
+                    with bill_cols[1]:
+                        st.markdown("**Complete committee stage**")
+                        can_report = int(bill.get("evidence", 0)) >= 65
+                        if st.button("Report the bill to the House", key=f"bill_committee_report_{session_key}", disabled=remaining <= 0 or "bill_committee_report" in used or not can_report, use_container_width=True):
+                            _private_bill_action(p, "committee_report")
+                        if not can_report:
+                            st.caption("Requirement: 65% evidence prepared.")
+                elif bill["stage"] == "report":
+                    with bill_cols[0]:
+                        st.markdown("**Negotiate report-stage amendments**")
+                        st.caption("Seek improvements and another colleague's support.")
+                        if st.button("Negotiate an amendment", key=f"bill_report_amendment_{session_key}", disabled=remaining <= 0 or "bill_report_amendment" in used, use_container_width=True):
+                            _private_bill_action(p, "report_amendment")
+                    with bill_cols[1]:
+                        st.markdown("**Third reading**")
+                        can_final = int(bill.get("sponsors", 0)) >= 3 and int(bill.get("evidence", 0)) >= 65
+                        if st.button("Hold final reading vote", key=f"bill_third_reading_{session_key}", disabled=remaining <= 0 or "bill_third_reading" in used or not can_final, type="primary", use_container_width=True):
+                            _private_bill_action(p, "third_reading")
+                        if not can_final:
+                            st.caption("Requirement: 3 sponsors and 65% evidence prepared.")
+        else:
+            if isinstance(saved_bill, dict) and saved_bill.get("stage") in {"assented", "defeated"}:
+                st.success(saved_bill.get("last_outcome", "Your previous Private Member's Bill has concluded."))
+            bill_ids = list(PRIVATE_MEMBERS_BILLS)
+            selected_bill_id = st.selectbox(
+                "Choose a proposal",
+                bill_ids,
+                format_func=lambda key: PRIVATE_MEMBERS_BILLS[key]["label"],
+                key=f"pmb_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+            )
+            selected_spec = PRIVATE_MEMBERS_BILLS[selected_bill_id]
+            st.caption(f"{selected_spec['description']} Policy area: {selected_spec['policy_area']}.")
+            if st.button("Draft this Private Member's Bill", key=f"pmb_draft_{p['career_term']}_{p['career_year']}_{p['career_session']}", disabled=remaining <= 0 or "draft_private_bill" in used, type="primary", use_container_width=True):
+                _draft_private_members_bill(p, selected_bill_id)
+        if p.get("private_bill_history"):
+            with st.expander("Previous Private Members' Bills", expanded=False):
+                for old_bill in reversed(p["private_bill_history"][-5:]):
+                    icon_label = "✅" if old_bill.get("stage") == "assented" else "❌"
+                    st.markdown(f"**{icon_label} {html.escape(str(old_bill.get('label', 'Bill')))}**")
+                    st.caption(old_bill.get("last_outcome", "Completed bill record."))
+
         if p.get("role") in GOVERNMENT_ROLES:
             st.markdown("### Government portfolio and delivery")
             portfolio_id = p.get("portfolio_id") if p.get("portfolio_id") in PORTFOLIOS else list(PORTFOLIOS)[0]
