@@ -261,11 +261,16 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
 .mp-hero h1 { margin:.35rem 0 .55rem; font-family:Georgia,serif; font-size:clamp(2rem,4vw,3.1rem); line-height:1.12; color:#171b22; }
 .mp-hero p { margin:0; max-width:1000px; color:#5f6a78; font-size:1.04rem; line-height:1.55; }
 .mp-setup-card { background:#fff; border:1px solid var(--mp-border); border-radius:14px; padding:1.3rem; box-shadow:var(--mp-shadow); }
-[data-testid="stProgress"] { margin:.35rem 0 .65rem; }
-[data-testid="stProgress"] > div { background:transparent !important; }
-[data-testid="stProgress"] [role="progressbar"] { background:#e6ebf1 !important; border-radius:99px !important; overflow:hidden !important; }
-[data-testid="stProgress"] [role="progressbar"] > div { background:var(--mp-party-accent) !important; border-radius:99px !important; transition:width .55s cubic-bezier(.2,.7,.2,1) !important; }
-[data-testid="stProgress"] svg { color:var(--mp-party-accent) !important; }
+.mp-progress-wrap { margin:.35rem 0 .65rem; min-width:0; }
+.mp-progress-label { color:#667383; font-size:.78rem; line-height:1.4; margin:0 0 .32rem; }
+.mp-progress-track {
+  width:100%; height:8px; background:#e6ebf1; border:1px solid #d9e1e9;
+  border-radius:999px; overflow:hidden; box-sizing:border-box;
+}
+.mp-progress-fill {
+  height:100%; background:var(--mp-party-accent); border-radius:999px;
+  transition:width .55s cubic-bezier(.2,.7,.2,1);
+}
 
 /* Buttons */
 [data-testid="stButton"] button,[data-testid="stDownloadButton"] button,[data-testid="stFormSubmitButton"] button {
