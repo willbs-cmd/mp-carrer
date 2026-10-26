@@ -90,7 +90,7 @@ class CareerGameplayTests(unittest.TestCase):
         self.assertEqual(result["non_voting"], 8)
 
     def test_player_in_a_party_with_no_current_seats_does_not_create_a_651st_seat(self):
-        self.profile["party"] = "Your Party"
+        self.profile["party"] = "Fictional Unity Party"
         result = career._simulate_division_result(self.profile, career.DIVISIONS[0], "No")
         self.assertEqual(result["total_seats"], 650)
         self.assertEqual(result["ayes"] + result["noes"] + result["abstentions"], 650)
