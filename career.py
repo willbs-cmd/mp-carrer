@@ -1123,7 +1123,7 @@ def render():
           <div class="mp-season-right">{party} <span>·</span> {role_label}</div>
         </div>
         <div class="mp-overview-panel">
-          <div class="mp-overview-heading"><strong>Your Parliament</strong><span>{(ELECTION_AFTER - int(p.get('career_year', 1))) * SESSIONS_PER_YEAR + (SESSIONS_PER_YEAR - int(p.get('career_session', 1)))} sessions until the next general election · {len(p.get('promotion_log', []))} appointments to date</span></div>
+          <div class="mp-overview-heading"><strong>Your Parliament</strong><span>{(ELECTION_AFTER - int(p.get('career_year', 1))) * SESSIONS_PER_YEAR + (SESSIONS_PER_YEAR - int(p.get('career_session', 1)) + 1)} sessions until the next general election · {len(p.get('promotion_log', []))} appointments to date</span></div>
           <div class="mp-timeline-track">{''.join(timeline_tiles)}</div>
         </div>
         """,
@@ -1519,5 +1519,13 @@ def render():
 
     if len(used) >= ACTIONS_PER_SESSION:
         st.divider()
-        st.warning("Your two career-action slots are used. You can still cast the current Commons vote, then end the session.")
+        st.warning("Your two career-action slots are used. You can still cast the current Commons vote, then continue to the next session.")
+    if len(used) >= ACTIONS_PER_SESSION and not p.get("game_over"):
+        if st.button(
+            "End parliamentary session and continue",
+            key=f"advance_session_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+            type="primary",
+            use_container_width=True,
+        ):
+            _advance(p)
     st.markdown("<div class='mp-footer-note'>Fictionalised UK parliamentary career simulator · Constituency boundaries use the July 2024 register · No live party whip or current-affairs claims</div>", unsafe_allow_html=True)
