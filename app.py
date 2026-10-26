@@ -54,7 +54,29 @@ st.markdown(
     [data-testid="stHorizontalBlock"] { gap:.8rem; }
     [data-testid="stButton"] button, [data-testid="stDownloadButton"] button {
       border-radius:8px; min-height:2.65rem; white-space:normal; padding:.6rem .9rem;
+      background:#1b4937 !important; color:#f2ead9 !important; border:1px solid #537965 !important;
+      font-weight:700; transition:background .15s ease, border-color .15s ease;
     }
+    [data-testid="stButton"] button:hover, [data-testid="stDownloadButton"] button:hover {
+      background:#285b43 !important; color:#fff8e9 !important; border-color:#c9a45c !important;
+    }
+    [data-testid="stButton"] button:disabled {
+      background:#172c23 !important; color:#82968a !important; border-color:#2b4739 !important;
+      opacity:1 !important; cursor:not-allowed;
+    }
+    [data-testid="stButton"] button[kind="primary"] {
+      background:#c9a45c !important; color:#10251b !important; border-color:#e4c982 !important;
+    }
+    [data-testid="stButton"] button[kind="primary"]:hover {
+      background:#e0bd70 !important; color:#10251b !important; border-color:#f0d99c !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+      background:linear-gradient(145deg,#153b2d 0%,#10291f 100%);
+      border:1px solid #355d49; border-radius:12px; overflow:hidden;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] > div { background:transparent; }
+    [data-testid="stAlert"] { border-radius:10px; border:1px solid #355d49; }
+    [data-testid="stProgress"] > div { background:#1a3e2e; }
     [data-testid="stExpander"] { border-color:var(--westminster-border); border-radius:9px; }
     [data-testid="stRadio"] label, [data-testid="stSelectbox"] label, [data-testid="stTextInput"] label, [data-testid="stNumberInput"] label { color:var(--westminster-text); }
     .mp-source-note { font-size:.88rem; color:var(--westminster-muted); }
