@@ -587,7 +587,7 @@ def _resolve_phase2_decision(p, action_id, label, description, effects,
         scrutiny_effects = {"integrity": -8, "party_trust": -4, "public_profile": 4}
         _apply_effects(p, scrutiny_effects)
         p["ethics_risk"] = 1
-        narrative += " A transparency lapse has triggered a fictional Westminster standards row; the Standards Commissioner is asking questions."
+        narrative += " A transparency lapse has triggered a fictional Westminster standards row; the Parliamentary Commissioner for Standards is asking questions."
     _record(p, label, narrative)
     p["last_event"] = f"{label}: {summary or 'The decision has affected your political relationships.'}"
     if int(p.get("ethics_risk", 0)) > 0:
@@ -775,6 +775,11 @@ def render():
                       help="A game attribute from 0 to 100. Actions and promotion bonuses change it.")
     st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this parliamentary session")
     st.progress(int(stats.get("campaign_readiness", 30)) / 100, text=f"Constituency general-election campaign readiness: {int(stats.get('campaign_readiness', 30))}/100")
+    standards_risk = int(p.get("ethics_risk", 0))
+    if standards_risk >= 2:
+        st.warning(f"Parliamentary standards risk: {standards_risk}/5. A further transparency lapse could trigger a standards row.")
+    else:
+        st.caption(f"Parliamentary standards risk: {standards_risk}/5 · Transparency and proper registration help protect your reputation.")
 
     if p.get("last_event"):
         st.info(p["last_event"])
