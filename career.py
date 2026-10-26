@@ -450,6 +450,21 @@ def _profile():
     p.setdefault("votes_by_session", {})
     p.setdefault("vote_history", [])
     p.setdefault("history", [])
+    # Upgrade votes saved before the full House model was introduced. This
+    # avoids showing the old 100-point result or missing total_seats key after
+    # a player refreshes the app mid-session.
+    for saved_vote in p.get("votes_by_session", {}).values():
+        if not isinstance(saved_vote, dict):
+            continue
+        stored_result = saved_vote.get("division_result")
+        if isinstance(stored_result, dict) and int(stored_result.get("total_seats", 0)) == SIMULATED_TOTAL_SEATS:
+            continue
+        division = DIVISION_BY_ID.get(saved_vote.get("division_id"))
+        vote_choice = saved_vote.get("vote")
+        if division and vote_choice in VOTE_OPTIONS:
+            saved_party_profile = dict(p)
+            saved_party_profile["party"] = saved_vote.get("party", p.get("party", "Labour"))
+            saved_vote["division_result"] = _simulate_division_result(saved_party_profile, division, vote_choice)
     current_seat = CONSTITUENCY_BY_NAME.get(p.get("constituency"))
     if current_seat is None:
         current_seat = CONSTITUENCIES[0]
@@ -1595,6 +1610,11 @@ def _render_parliament_tab():
         f"Official party/group snapshot checked {PARLIAMENT_COMPOSITION['as_of']}. "
         "The composition charts use the dated snapshot; the constituency map requests current MP affiliations from Parliament's Members API."
     )
+    st.markdown(
+        "Sources: [Commons state of the parties](https://members.parliament.uk/parties/Commons) · "
+        "[Lords membership](https://members.parliament.uk/parties/lords/by-peerage) · "
+        "[UK Parliament Members API](https://members-api.parliament.uk/index.html)."
+    )
     top = st.columns(4, gap="medium")
     top[0].metric("Commons seats", f"{commons_total:,}")
     top[1].metric("Majority threshold", f"{PARLIAMENT_COMPOSITION['commons']['majority_threshold']:,}")
@@ -1955,7 +1975,7 @@ def render():
                 st.write(division["description"])
                 whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
                 st.markdown(whip_label)
-                st.caption(f"Local mandate: {MANDATES.get(p.get('local_mandate'), {}).get('label', p.get('local_mandate', 'Not set'))}. The bill, whip and tally are fictionalised game content, not current party positions.")
+                st.caption(f"Local mandate: {MANDATES.get(p.get('local_mandate'), {}).get('label', p.get('local_mandate', 'Not set'))}. The result uses the full 650-seat model, but the party blocs and whip are simplified fictional gameplay—not a real Commons division.")
                 if saved_vote:
                     st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
                     result = saved_vote.get("division_result")
