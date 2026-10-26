@@ -169,6 +169,22 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
 }
 .mp-timeline-poll strong { color:var(--mp-red); font-size:1rem; }
 
+/* Compact action guidance and latest-event banner */
+.mp-event-banner {
+  display:flex; align-items:baseline; flex-wrap:wrap; gap:.35rem .75rem;
+  background:#fff; border:1px solid var(--mp-border);
+  border-left:4px solid var(--mp-party-accent); border-radius:9px;
+  padding:.55rem .8rem; margin:.35rem 0 .65rem;
+  color:#35404c; font-size:.86rem; line-height:1.4;
+  animation:mpFadeUp .28s ease both;
+}
+.mp-event-banner strong {
+  color:var(--mp-party-dark); white-space:nowrap;
+  text-transform:uppercase; letter-spacing:.06em; font-size:.69rem;
+}
+.mp-event-banner span { color:#4f5c6a; }
+.mp-event-banner + [data-testid="stAlert"] { margin-top:.35rem; }
+
 /* Headline stats cards */
 [data-testid="stMetric"] {
   background:var(--mp-paper); border:1px solid var(--mp-border); border-top:3px solid var(--mp-party-accent);
