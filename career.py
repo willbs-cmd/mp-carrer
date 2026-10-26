@@ -562,7 +562,20 @@ def _simulate_division_result(p, division, choice):
     player_party = p.get("party", "Labour")
     non_voting = 0
 
-    for party, seats in SIMULATED_PARTY_SEATS.items():
+    seat_counts = dict(SIMULATED_PARTY_SEATS)
+    # The player is the MP occupying one of the 650 seats. Replace one member
+    # of the player's party with the player's vote. If the selected party has
+    # no member in the dated snapshot, the new fictional MP replaces one seat
+    # from the largest voting bloc so the House still has exactly 650 seats.
+    if int(seat_counts.get(player_party, 0)) <= 0:
+        replacement_party = max(
+            (name for name in seat_counts if name not in SIMULATED_NON_VOTING_PARTIES and name != "Speaker"),
+            key=lambda name: seat_counts[name],
+        )
+        seat_counts[replacement_party] = max(0, int(seat_counts[replacement_party]) - 1)
+        seat_counts[player_party] = 1
+
+    for party, seats in seat_counts.items():
         party_seats = int(seats)
         # The Speaker does not vote and Sinn Féin's MPs are shown as non-sitting
         # in the official Commons party list. In this simplified game, those
@@ -2391,6 +2404,9 @@ def render():
             for item in reversed(p.get("history", [])[-20:]):
                 st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
                 st.caption(item["text"])
+
+    elif active_tab == "Parliament":
+        _render_parliament_tab()
 
     if len(used) >= ACTIONS_PER_SESSION and not p.get("game_over"):
         st.divider()
