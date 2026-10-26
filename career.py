@@ -491,8 +491,6 @@ def _profile():
     p.setdefault("votes_by_session", {})
     p.setdefault("vote_history", [])
     p.setdefault("history", [])
-    # Add the fictional polling series to careers saved before this feature.
-    _ensure_polling_state(p)
     # Upgrade votes saved before the full House model was introduced. This
     # avoids showing the old 100-point result or missing total_seats key after
     # a player refreshes the app mid-session.
@@ -519,6 +517,8 @@ def _profile():
         p["local_mandate"] = "public_services"
     if p.get("party") not in DIVISION_DATA["party_names"]:
         p["party"] = st.session_state.get("party", "Labour")
+    # Add the fictional polling series to careers saved before this feature.
+    _ensure_polling_state(p)
     p.setdefault("promotion_log", [])
     p.setdefault("career_total_years", 0)
     p.setdefault("faction_standing", {"party_leadership": 50, "backbenchers": 50, "local_party": 50, "cross_party": 35})
