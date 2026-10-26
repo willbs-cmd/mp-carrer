@@ -1,4 +1,5 @@
 """Playable political career mode: from backbench MP towards senior office."""
+import html
 import random
 import streamlit as st
 
@@ -1051,355 +1052,472 @@ def _advance(p):
 
 
 def render():
-    """Main career-mode screen."""
+    """Modern UK Westminster career dashboard, styled after an official political portal."""
     p = _profile()
-    role = ROLES.get(p["role"], ROLES["mp"])
+    role = ROLES.get(p.get("role"), ROLES["mp"])
+    stats = p["stats"]
     used = _current_actions(p)
     remaining = max(0, ACTIONS_PER_SESSION - len(used))
+    session_key = _session_key(p)
+    nav_options = ["Desk", "Nation", "Plans", "Press"]
+    st.session_state.setdefault("mp_active_nav", "Desk")
+
+    safe_name = html.escape(str(p.get("name", "MP")))
+    safe_constituency = html.escape(str(p.get("constituency", "Westminster")))
+    safe_nation = html.escape(str(p.get("constituency_nation", "United Kingdom")))
+    party = html.escape(str(p.get("party", "Independent")))
+    role_label = html.escape(str(role.get("label", "MP")))
+
     st.markdown(
-        f"<div class='ch-banner'><div class='ch-head'><span class='ch-title'>🏛️ {p['name']}</span>"
-        f"<span class='sub'>{role['label'].upper()} · PARLIAMENTARY CAREER</span></div>"
-        f"<div class='sub'>{p['constituency']} · {p['constituency_nation']} · {p['constituency_code']} · "
-        f"Term {p['career_term']} · Year {p['career_year']} of {ELECTION_AFTER} · Session {p['career_session']} of {SESSIONS_PER_YEAR}</div></div>",
+        f"""
+        <div class="mp-portal">
+          <div class="mp-portal-brand">
+            <div class="mp-crest">£</div>
+            <div><div class="mp-brand-title">Westminster</div><div class="mp-brand-sub">MP Career Portal</div></div>
+          </div>
+          <div class="mp-portal-motto">A UK political career simulator <span>•</span> Not an official parliamentary service</div>
+          <div class="mp-user-chip"><span class="mp-avatar">{safe_name[:1].upper()}</span><div><strong>{safe_name}</strong><small>{role_label}</small></div></div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    st.markdown(f"## {role['label']}")
-    st.write(role["description"])
-    st.caption(f"Career ambition: {DATA['ambitions'][p['ambition']]['label']}. UK Westminster career simulation: Commons divisions, the party Whips' Office, PMQs, Select Committees, constituency casework and general elections. Appointments and headlines are fictionalised game mechanics.")
+    st.radio(
+        "Game section",
+        nav_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="mp_active_nav",
+    )
+    active_tab = st.session_state.get("mp_active_nav", "Desk")
+    calendar_year = 2027 + (int(p.get("career_term", 1)) - 1) * ELECTION_AFTER + int(p.get("career_year", 1)) - 1
+    season_names = ("SPR", "SUM", "BUD")
+    current_step = (int(p.get("career_year", 1)) - 1) * SESSIONS_PER_YEAR + int(p.get("career_session", 1)) - 1
+    timeline_tiles = []
+    for year_offset in range(ELECTION_AFTER):
+        display_year = calendar_year - (int(p.get("career_year", 1)) - 1) + year_offset
+        for session_idx, season in enumerate(season_names):
+            tile_index = year_offset * SESSIONS_PER_YEAR + session_idx
+            classes = ["mp-timeline-tile"]
+            if tile_index < current_step:
+                classes.append("complete")
+            elif tile_index == current_step and not p.get("game_over"):
+                classes.append("current")
+            tile_label = season
+            if season == "BUD":
+                tile_label += " £"
+            timeline_tiles.append(
+                f"<div class='{' '.join(classes)}'><small>{tile_label}</small><strong>{display_year}</strong></div>"
+            )
+    timeline_tiles.append(
+        "<div class='mp-timeline-poll'><small>POLL</small><strong>✕</strong></div>"
+    )
+    term_label = "General election" if p.get("game_over") else f"Term {int(p.get('career_term', 1))} · Year {int(p.get('career_year', 1))} of {ELECTION_AFTER}"
+    capital = max(0, min(10, int(round(int(stats.get("parliamentary_influence", 0)) / 10))))
+    capital_dots = "".join(
+        f"<span class='mp-capital-dot {'filled' if n < capital else ''}'></span>" for n in range(10)
+    )
+    st.markdown(
+        f"""
+        <div class="mp-season-strip">
+          <div class="mp-season-left"><span class="mp-live-tag">CAREER</span><strong>{term_label}</strong><span class="mp-season-detail">{safe_constituency} · {safe_nation} · {html.escape(str(p.get('constituency_code', '')))}</span></div>
+          <div class="mp-season-right">{party} <span>·</span> {role_label}</div>
+        </div>
+        <div class="mp-overview-panel">
+          <div class="mp-overview-heading"><strong>Your Parliament</strong><span>{(ELECTION_AFTER - int(p.get('career_year', 1))) * SESSIONS_PER_YEAR + (SESSIONS_PER_YEAR - int(p.get('career_session', 1)))} sessions until the next general election · {len(p.get('promotion_log', []))} appointments to date</span></div>
+          <div class="mp-timeline-track">{''.join(timeline_tiles)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    stats = p["stats"]
-    st.markdown("### Your political standing")
-    columns = st.columns(3, gap="medium")
-    for index, (key, label) in enumerate(ATTRIBUTES.items()):
-        with columns[index % 3]:
-            st.metric(label, f"{int(stats.get(key, 0))}/100",
-                      help="A game attribute from 0 to 100. Actions and promotion bonuses change it.")
-    st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this parliamentary session")
-    st.progress(int(stats.get("campaign_readiness", 30)) / 100, text=f"Constituency general-election campaign readiness: {int(stats.get('campaign_readiness', 30))}/100")
-    standards_risk = int(p.get("ethics_risk", 0))
-    if standards_risk >= 2:
-        st.warning(f"Parliamentary standards risk: {standards_risk}/5. A further transparency lapse could trigger a standards row.")
-    else:
-        st.caption(f"Parliamentary standards risk: {standards_risk}/5 · Transparency and proper registration help protect your reputation.")
+    metrics = [
+        ("Constituency", f"{int(stats.get('constituency_support', 0))}%", "Local support"),
+        ("Party trust", f"{int(stats.get('party_trust', 0))}", "Whips and colleagues"),
+        ("Influence", f"{int(stats.get('parliamentary_influence', 0))}", "Parliamentary capital"),
+        ("Public profile", f"{int(stats.get('public_profile', 0))}", "Media recognition"),
+        ("Policy expertise", f"{int(stats.get('policy_expertise', 0))}", "Subject knowledge"),
+        ("Integrity", f"{int(stats.get('integrity', 0))}", "Standards and trust"),
+        ("Campaign", f"{int(stats.get('campaign_readiness', 30))}%", "Election readiness"),
+        ("Standards risk", f"{int(p.get('ethics_risk', 0))}/5", "Lower is safer"),
+    ]
+    metric_cols = st.columns(8, gap="small")
+    for col, (label, value, help_text) in zip(metric_cols, metrics):
+        with col:
+            st.metric(label, value, help=help_text)
 
     if p.get("last_event"):
         st.info(p["last_event"])
 
     if p.get("game_over"):
-        st.error("Career over — you lost your seat at the general election.")
-        if st.button("Start a new career", type="primary"):
-            st.session_state.step = "setup"
-            st.session_state.game_mode = "chancellor"
-            st.session_state.career_profile = None
-            st.rerun()
         stats_now = p.get("stats", {})
         legacy_score = round(sum(float(stats_now.get(key, 0)) for key in ATTRIBUTES) / max(1, len(ATTRIBUTES)), 1)
         legacy_grade = "A" if legacy_score >= 85 else "B" if legacy_score >= 75 else "C" if legacy_score >= 65 else "D" if legacy_score >= 55 else "E" if legacy_score >= 45 else "F"
-        st.markdown("### 🏆 Final Westminster career report")
+        st.markdown("## Your final Westminster report")
         summary_cols = st.columns(4, gap="medium")
         summary_cols[0].metric("Career grade", legacy_grade)
         summary_cols[1].metric("Final standing", f"{legacy_score}/100")
         summary_cols[2].metric("Years served", int(p.get("career_total_years", 0)))
         summary_cols[3].metric("Promotions", len(p.get("promotion_log", [])))
         st.caption(f"General elections won: {max(0, int(p.get('seats_won', 1)) - 1)} · Allies: {len(p.get('allies', []))} · Rivals: {len(p.get('rivals', []))} · Final standards risk: {int(p.get('ethics_risk', 0))}/5")
-        st.caption("Your final grade is a game summary of your career attributes, not an assessment of a real politician.")
         with st.expander("Career record", expanded=True):
-            for item in reversed(p["history"][-15:]):
+            for item in reversed(p.get("history", [])[-20:]):
                 st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
                 st.caption(item["text"])
+        if st.button("Start a new Westminster career", type="primary", use_container_width=True):
+            st.session_state.step = "setup"
+            st.session_state.career_profile = None
+            st.session_state.mp_active_nav = "Desk"
+            st.rerun()
         return
 
-    if p.get("election_result"):
-        result = p["election_result"]
-        if result["won"]:
-            st.success(f"Election result: re-elected (career score {result['score']:.1f}, result {result['margin']:.1f}; threshold {result['threshold']}).")
-        else:
-            st.error(f"Election result: seat lost (career score {result['score']:.1f}, result {result['margin']:.1f}; threshold {result['threshold']}).")
+    if active_tab == "Desk":
+        left, right = st.columns([2.15, 0.95], gap="large")
+        with left:
+            st.markdown("## The Commons desk")
+            st.caption("Your daily political work: vote, influence the party and use your two career-action slots wisely.")
+            division = _division_for(p)
+            saved_vote = p.get("votes_by_session", {}).get(session_key)
+            whip = division.get("whip", {}).get(p.get("party", "Labour"), "Free vote")
+            with st.container(border=True):
+                st.markdown("<div class='mp-overline'>COMMONS DIVISION · WHIP CHECK</div>", unsafe_allow_html=True)
+                st.markdown(f"### {division['title']}")
+                st.write(division["description"])
+                whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
+                st.markdown(whip_label)
+                st.caption(f"Local mandate: {MANDATES.get(p.get('local_mandate'), {}).get('label', p.get('local_mandate', 'Not set'))}. The bill, whip and tally are fictionalised game content, not current party positions.")
+                if saved_vote:
+                    st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
+                    result = saved_vote.get("division_result")
+                    if result:
+                        st.info(f"Simulated result: **{result['result']}** · Ayes {result['ayes']} – Noes {result['noes']} · Majority {result['majority']} game points.")
+                    if saved_vote.get("effects_summary"):
+                        st.caption(f"Career effects: {saved_vote['effects_summary']}.")
+                else:
+                    vote_choice = st.radio(
+                        "How will you vote?",
+                        VOTE_OPTIONS,
+                        index=None,
+                        horizontal=True,
+                        key=f"career_vote_choice_{session_key}",
+                        help="Following the whip tends to build party trust. Rebelling can raise your profile but may make promotion harder.",
+                    )
+                    if st.button("Cast vote in the Commons", type="primary", disabled=vote_choice is None, use_container_width=True):
+                        if _cast_vote(p, vote_choice):
+                            st.rerun()
 
-    st.markdown("### 🗳️ Your Commons division")
-    st.caption("Every session includes one vote. Voting is separate from your two career actions, just as MPs vote on multiple matters alongside their wider parliamentary work.")
-    division = _division_for(p)
-    session_key = _session_key(p)
-    saved_vote = p.get("votes_by_session", {}).get(session_key)
-    whip = division.get("whip", {}).get(p.get("party", "Labour"), "Free vote")
-    with st.container(border=True):
-        st.markdown(f"**{division['title']}**")
-        st.write(division["description"])
-        whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
-        st.markdown(whip_label)
-        st.caption(f"Your selected local priority: {MANDATES[p['local_mandate']]['label']}. Matching that priority can increase constituency support when the bill concerns it.")
-        st.caption("The bill, party whip and simplified vote tally are fictionalised game content. Tally points use abstract game-only party weights; they are not real seat counts, a historical division or current official party positions.")
-        if saved_vote:
-            st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
-            result = saved_vote.get("division_result")
-            if result:
-                st.info(f"Simulated division result: **{result['result']}** · Ayes {result['ayes']} – Noes {result['noes']} · Majority {result['majority']} game points.")
-            if saved_vote.get("effects_summary"):
-                st.caption(f"Career effects: {saved_vote['effects_summary']}.")
-            st.caption("You can vote on the next division when the next parliamentary session begins.")
-        else:
-            vote_choice = st.radio(
-                "How will you vote?",
-                VOTE_OPTIONS,
-                index=None,
-                horizontal=True,
-                key=f"career_vote_choice_{session_key}",
-                help="Following the whip usually builds party trust. Rebelling can boost your profile and integrity but may make future promotion harder. Abstaining can be a middle ground."
-            )
-            if st.button("Cast vote in the Commons", type="primary", disabled=vote_choice is None, use_container_width=True):
-                if _cast_vote(p, vote_choice):
-                    st.rerun()
+            st.markdown("### Political standing")
+            st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this session")
+            st.markdown("### Parliamentary record")
+            if p.get("history"):
+                for item in reversed(p["history"][-4:]):
+                    st.markdown(
+                        f"<div class='mp-diary-entry'><div class='mp-diary-marker'></div><div><strong>{html.escape(str(item['title']))}</strong><p>{html.escape(str(item['text']))}</p><small>Term {item['term']} · Year {item['year']} · Session {item['session']}</small></div></div>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.caption("Your Westminster diary will appear here as you make decisions.")
+        with right:
+            with st.container(border=True):
+                st.markdown("### Political capital")
+                st.markdown(f"<div class='mp-capital-meter'>{capital_dots}<strong>{capital}</strong></div>", unsafe_allow_html=True)
+                st.write("Your parliamentary influence fuels this meter. Use your career actions to build relationships, shape decisions and strengthen your standing.")
+                st.caption(f"{remaining} of {ACTIONS_PER_SESSION} career actions remain this session. Commons votes do not consume an action slot.")
+            with st.container(border=True):
+                st.markdown("### The whip's mood")
+                faction = p.get("faction_standing", {})
+                leadership = int(faction.get("party_leadership", 50))
+                if leadership >= 70:
+                    mood = "The leadership trusts you with important assignments."
+                elif leadership >= 45:
+                    mood = "The Whips are watching, but doors remain open."
+                else:
+                    mood = "You are on the leadership's watchlist. Promotion may be harder."
+                st.write(mood)
+                st.progress(leadership / 100, text=f"Leadership confidence · {leadership}/100")
+                st.caption(f"Party trust: {int(stats.get('party_trust', 0))}/100")
+            with st.container(border=True):
+                st.markdown("### Your diary")
+                recent = list(reversed(p.get("history", [])[-3:]))
+                if recent:
+                    for entry in recent:
+                        st.markdown(f"**{html.escape(str(entry['title']))}**")
+                        st.caption(html.escape(str(entry['text'])))
+                else:
+                    st.caption("No entries yet.")
 
-    if p.get("role") in GOVERNMENT_ROLES:
-        st.markdown("### 🏛️ Government portfolio and delivery")
-        portfolio_id = p.get("portfolio_id") if p.get("portfolio_id") in PORTFOLIOS else list(PORTFOLIOS)[0]
-        portfolio = PORTFOLIOS[portfolio_id]
-        portfolio_cols = st.columns(3, gap="medium")
-        with portfolio_cols[0]:
-            st.metric("Department delivery rating", f"{int(p.get('department_score', 40))}/100")
-        with portfolio_cols[1]:
-            st.metric("Target progress", f"{int(p.get('department_progress', 0))}%")
-        with portfolio_cols[2]:
-            st.metric("Current target", portfolio["label"])
-        target_progress = int(p.get("department_progress", 0))
-        st.progress(target_progress / 100, text=f"Delivery against target: {target_progress}%")
-        with st.expander("Manage portfolio and policy target", expanded=False):
-            selected_portfolio = st.selectbox(
-                "Portfolio",
-                list(PORTFOLIOS),
-                index=list(PORTFOLIOS).index(portfolio_id),
-                format_func=lambda key: PORTFOLIOS[key]["label"],
-                key=f"portfolio_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-            )
-            target_pool = PORTFOLIOS[selected_portfolio]["targets"]
-            current_target = p.get("portfolio_target")
-            selected_target = st.selectbox(
-                "Delivery target",
-                target_pool,
-                index=target_pool.index(current_target) if current_target in target_pool else 0,
-                key=f"portfolio_target_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-            )
-            if st.button(
-                "Set portfolio and target (uses 1 action)",
-                key=f"set_portfolio_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-                disabled=remaining <= 0 or "portfolio_target" in used,
-                use_container_width=True,
-            ):
-                _set_portfolio_and_target(p, selected_portfolio, selected_target)
-        st.caption(f"Current policy target: **{p.get('portfolio_target') or portfolio['targets'][0]}**. Delivery rating is part of senior promotion eligibility.")
-        delivery_cols = st.columns(2, gap="medium")
-        for index, action in enumerate(DEPARTMENT_ACTIONS):
-            with delivery_cols[index % 2]:
+    elif active_tab == "Nation":
+        st.markdown("## Your constituency office")
+        st.caption("Local casework, campaign priorities and the next general election. Each response uses one career-action slot.")
+        top_a, top_b = st.columns([1.25, 1], gap="medium")
+        with top_a:
+            st.markdown("### Constituency priorities")
+            for key, mandate in MANDATES.items():
+                selected = key == p.get("local_mandate")
                 with st.container(border=True):
+                    st.markdown(f"**{'✓ ' if selected else ''}{mandate['label']}**")
+                    st.caption(mandate["description"])
+                    if selected:
+                        st.caption("Your current campaign priority")
+            st.markdown("### Constituency inbox")
+            st.caption("Three fictional cases arrive each parliamentary session. Choose a response to resolve the case.")
+            for case in _current_inbox_cases(p):
+                action_id = f"inbox_{case['id']}"
+                with st.container(border=True):
+                    st.markdown(f"**{case['title']}**")
+                    st.write(case["description"])
+                    st.caption(f"Area: {MANDATES.get(case['priority'], {}).get('label', case['priority'])}")
+                    if action_id in used:
+                        st.success("Case resolved this session")
+                    elif remaining > 0:
+                        responses = [
+                            ("investigate", "Investigate and follow up"),
+                            ("parliament", "Raise the issue in Parliament"),
+                            ("coordinate", "Bring local partners together"),
+                        ]
+                        options = {key: label for key, label in responses}
+                        response = st.selectbox(
+                            "Response",
+                            list(options),
+                            format_func=lambda key: options[key],
+                            key=f"inbox_response_{p['career_term']}_{p['career_year']}_{p['career_session']}_{case['id']}",
+                        )
+                        if st.button("Resolve case", key=f"inbox_{p['career_term']}_{p['career_year']}_{p['career_session']}_{case['id']}", use_container_width=True):
+                            _resolve_inbox_case(p, case, response)
+                    else:
+                        st.caption("No action slots left. Advance the parliamentary session to continue.")
+        with top_b:
+            with st.container(border=True):
+                st.markdown("### Election readiness")
+                st.metric("Campaign readiness", f"{int(stats.get('campaign_readiness', 30))}/100")
+                st.progress(int(stats.get("campaign_readiness", 30)) / 100)
+                st.write("Canvassing, local events and showing voters you understand their priorities improve your chances at the next simulated general election.")
+                if len(used) >= ACTIONS_PER_SESSION:
+                    st.warning("Both action slots are used.")
+            with st.container(border=True):
+                st.markdown("### Local campaign actions")
+                for action in PHASE2_NETWORK_ACTIONS:
+                    if action["id"] not in {"doorstep_campaign", "cross_party"}:
+                        continue
+                    action_id = f"network_{action['id']}"
+                    if action_id in used:
+                        st.caption(f"Completed: {action['label']}")
+                        continue
                     st.markdown(f"**{action['label']}**")
-                    st.write(action["description"])
-                    summary = _effect_summary(action["effects"])
-                    st.caption(f"{summary} · +{action['score']} delivery rating · +{action['progress']}% target progress")
-                    action_id = f"department_{action['id']}"
-                    if st.button(
-                        "Take delivery action",
-                        key=f"delivery_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}",
-                        disabled=remaining <= 0 or action_id in used,
-                        use_container_width=True,
-                    ):
-                        _run_department_action(p, action)
+                    st.caption(action["description"])
+                    if st.button("Run campaign action", key=f"local_action_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}", disabled=remaining <= 0, use_container_width=True):
+                        _resolve_network_action(p, action)
+            with st.container(border=True):
+                st.markdown("### Constituency casework record")
+                local_records = [entry for entry in p.get("history", []) if str(entry.get("title", "")).startswith("Inbox:")][-6:]
+                if local_records:
+                    for item in reversed(local_records):
+                        st.markdown(f"**{html.escape(str(item['title']))}**")
+                        st.caption(html.escape(str(item['text'])))
+                else:
+                    st.caption("Resolved constituent issues will appear here.")
 
-    st.markdown("### 📰 Westminster news desk")
-    st.caption("Each parliamentary session brings a fictional political story or dilemma. Responding uses one of your two career-action slots; leaving a story alone has no immediate effect.")
-    news_event = _current_phase2_news(p)
-    news_response = p.get("news_responses_by_session", {}).get(session_key)
-    with st.container(border=True):
-        st.markdown(f"**{news_event['headline']}**")
-        st.write(news_event["brief"])
-        if news_response and news_response.get("event_id") == news_event["id"]:
-            st.success(f"Response recorded: **{news_response['choice']}**.")
-            if news_response.get("effects_summary"):
-                st.caption(f"Effects: {news_response['effects_summary']}.")
-        elif remaining > 0:
-            news_cols = st.columns(len(news_event["choices"]), gap="medium")
-            for idx, choice in enumerate(news_event["choices"]):
-                with news_cols[idx]:
-                    st.markdown(f"**{choice['label']}**")
-                    st.caption(choice["description"])
-                    preview = _effect_summary(choice.get("effects", {}))
-                    if preview:
-                        st.caption(preview)
-                    if st.button(
-                        "Choose this response",
-                        key=f"phase2_news_{p['career_term']}_{p['career_year']}_{p['career_session']}_{news_event['id']}_{choice['id']}",
-                        use_container_width=True,
-                    ):
-                        _resolve_news_choice(p, news_event, choice)
+    elif active_tab == "Plans":
+        st.markdown("## Policy and parliamentary plans")
+        st.caption("Use your career actions to build expertise, work with colleagues and deliver your current responsibilities.")
+        if p.get("role") in GOVERNMENT_ROLES:
+            st.markdown("### Government portfolio and delivery")
+            portfolio_id = p.get("portfolio_id") if p.get("portfolio_id") in PORTFOLIOS else list(PORTFOLIOS)[0]
+            portfolio = PORTFOLIOS[portfolio_id]
+            portfolio_cols = st.columns(3, gap="medium")
+            portfolio_cols[0].metric("Department delivery", f"{int(p.get('department_score', 40))}/100")
+            portfolio_cols[1].metric("Target progress", f"{int(p.get('department_progress', 0))}%")
+            portfolio_cols[2].metric("Completed targets", len(p.get("completed_targets", [])))
+            st.progress(int(p.get("department_progress", 0)) / 100, text=f"Target: {p.get('portfolio_target') or portfolio['targets'][0]}")
+            with st.container(border=True):
+                st.markdown("#### Set a departmental portfolio and target")
+                portfolio_id_select = st.selectbox(
+                    "Portfolio",
+                    list(PORTFOLIOS),
+                    index=list(PORTFOLIOS).index(portfolio_id),
+                    format_func=lambda key: PORTFOLIOS[key]["label"],
+                    key=f"portfolio_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+                )
+                targets = PORTFOLIOS[portfolio_id_select]["targets"]
+                current_target = p.get("portfolio_target")
+                target_select = st.selectbox(
+                    "Policy target",
+                    targets,
+                    index=targets.index(current_target) if current_target in targets else 0,
+                    key=f"portfolio_target_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+                )
+                if st.button("Set portfolio and target (1 action)", disabled=remaining <= 0 or "portfolio_target" in used, type="primary", use_container_width=True):
+                    _set_portfolio_and_target(p, portfolio_id_select, target_select)
+            delivery_cols = st.columns(2, gap="medium")
+            for idx, action in enumerate(DEPARTMENT_ACTIONS):
+                with delivery_cols[idx % 2]:
+                    with st.container(border=True):
+                        st.markdown(f"**{action['label']}**")
+                        st.write(action["description"])
+                        st.caption(f"{_effect_summary(action['effects'])} · +{action['score']} delivery rating · +{action['progress']}% target progress")
+                        action_id = f"department_{action['id']}"
+                        if st.button("Take delivery action", key=f"delivery_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}", disabled=remaining <= 0 or action_id in used, use_container_width=True):
+                            _run_department_action(p, action)
         else:
-            st.caption("You have used both action slots. You can move on without responding to this story.")
-    if _leadership_eligible(p):
-        st.markdown("### 🏁 Party leadership")
-        leadership_label = "Test your mandate in a party confidence ballot" if p.get("role") == "prime_minister" else "Contest the party leadership"
-        st.caption("A fictional internal party contest. The result is influenced by party trust, parliamentary influence, public profile, faction support and your chosen strategy.")
-        contest_strategy = st.selectbox(
-            "Leadership strategy",
-            list(LEADERSHIP_STRATEGIES),
-            format_func=lambda key: f"{LEADERSHIP_STRATEGIES[key]['label']} — {LEADERSHIP_STRATEGIES[key]['description']}",
-            key=f"leadership_strategy_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-        )
-        if st.button(
-            leadership_label,
-            key=f"leadership_contest_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-            disabled=remaining <= 0 or "leadership_contest" in used,
-            type="primary",
-            use_container_width=True,
-        ):
-            _run_leadership_contest(p, contest_strategy)
-
-    if p.get("role") == "prime_minister":
-        st.markdown("### 🧑‍💼 Prime Minister's Cabinet")
-        st.caption("Reshuffles use a career-action slot and change your relationships with party factions.")
-        reshuffle_cols = st.columns(3, gap="medium")
-        for idx, (option_key, option) in enumerate(CABINET_RESHUFFLE_OPTIONS.items()):
-            with reshuffle_cols[idx]:
+            st.info(f"You are currently a {role['label']}. Ministerial portfolio management unlocks once you enter government.")
+        st.markdown("### Your available political actions")
+        if remaining > 0:
+            actions = role.get("actions", [])
+            cols = st.columns(2, gap="medium")
+            for index, action in enumerate(actions):
+                with cols[index % 2]:
+                    with st.container(border=True):
+                        st.markdown(f"**{action['label']}**")
+                        st.write(action["description"])
+                        summary = _effect_summary(action["effects"])
+                        if summary:
+                            st.caption(summary)
+                        action_used = action["id"] in used
+                        if st.button("Take this action", key=f"career_act_{p['career_term']}_{p['career_year']}_{p['career_session']}_{p['role']}_{action['id']}", disabled=action_used, use_container_width=True):
+                            _take_action(p, action)
+        else:
+            st.success("Both career actions are complete. End the session to continue.")
+        st.markdown("### Promotion opportunities")
+        offers = _eligible_promotions(p)
+        if offers:
+            for role_id, spec in offers:
                 with st.container(border=True):
-                    st.markdown(f"**{option['label']}**")
-                    st.caption(option["description"])
-                    effect_text = _effect_summary(option["effects"])
-                    if effect_text:
-                        st.caption(effect_text)
-                    if st.button(
-                        "Carry out reshuffle",
-                        key=f"reshuffle_{p['career_term']}_{p['career_year']}_{p['career_session']}_{option_key}",
-                        disabled=remaining <= 0 or "cabinet_reshuffle" in used,
-                        use_container_width=True,
-                    ):
-                        _run_cabinet_reshuffle(p, option_key)
+                    st.markdown(f"**Appointment opportunity: {ROLES[role_id]['label']}**")
+                    st.write(ROLES[role_id]["description"])
+                    if role_id in {"junior_minister", "minister_of_state", "secretary_state", "chancellor"}:
+                        threshold = {"junior_minister": 35, "minister_of_state": 42, "secretary_state": 48, "chancellor": 52}.get(p["role"], 0)
+                        st.caption(f"Department delivery requirement for later promotions: {threshold}/100 or above.")
+                    st.caption(_format_requirements(spec))
+                    if st.button(f"Accept appointment as {ROLES[role_id]['label']}", key=f"career_promote_{p['career_term']}_{p['career_year']}_{p['role']}_{role_id}", use_container_width=True):
+                        _accept_promotion(p, role_id, spec)
+        else:
+            next_rules = RULES.get(p["role"], {})
+            if next_rules:
+                with st.expander("Promotion requirements", expanded=False):
+                    for role_id, spec in next_rules.items():
+                        st.markdown(f"**Next step: {ROLES[role_id]['label']}**")
+                        st.caption(_format_requirements(spec))
+            else:
+                st.caption("You have reached the top role available in this career path.")
 
-    with st.expander("🤝 Party factions, allies and rivals", expanded=False):
-        st.caption("Factions and named colleagues are fictional game characters, not descriptions of real MPs. Choices here use a career-action slot.")
+    elif active_tab == "Press":
+        st.markdown("## Politics, press and party management")
+        st.caption("Westminster's news cycle is fictional gameplay. Your choices affect public profile, party trust, standards risk and political relationships.")
+        news_event = _current_phase2_news(p)
+        news_response = p.get("news_responses_by_session", {}).get(session_key)
+        with st.container(border=True):
+            st.markdown("<div class='mp-overline'>WESTMINSTER NEWS DESK · FICTIONAL EVENT</div>", unsafe_allow_html=True)
+            st.markdown(f"### {news_event['headline']}")
+            st.write(news_event["brief"])
+            if news_response and news_response.get("event_id") == news_event["id"]:
+                st.success(f"Response recorded: **{news_response['choice']}**.")
+                if news_response.get("effects_summary"):
+                    st.caption(f"Effects: {news_response['effects_summary']}.")
+            elif remaining > 0:
+                cols = st.columns(len(news_event["choices"]), gap="medium")
+                for idx, choice in enumerate(news_event["choices"]):
+                    with cols[idx]:
+                        with st.container(border=True):
+                            st.markdown(f"**{choice['label']}**")
+                            st.write(choice["description"])
+                            preview = _effect_summary(choice.get("effects", {}))
+                            if preview:
+                                st.caption(preview)
+                            if st.button("Choose this response", key=f"phase2_news_{p['career_term']}_{p['career_year']}_{p['career_session']}_{news_event['id']}_{choice['id']}", use_container_width=True):
+                                _resolve_news_choice(p, news_event, choice)
+            else:
+                st.caption("Both action slots are used. You can leave this story unanswered.")
+        st.markdown("### Party factions, allies and rivals")
         faction_cols = st.columns(4, gap="small")
         for idx, (faction_key, faction_label) in enumerate(PHASE2_FACTIONS.items()):
             with faction_cols[idx]:
-                st.metric(faction_label, f"{int(p['faction_standing'].get(faction_key, 50))}/100")
-        relationship_cols = st.columns(2, gap="medium")
-        with relationship_cols[0]:
-            st.markdown("**Allies**")
-            st.write(", ".join(p["allies"]) if p.get("allies") else "No established allies yet.")
-        with relationship_cols[1]:
-            st.markdown("**Rivals**")
-            st.write(", ".join(p["rivals"]) if p.get("rivals") else "No declared rivals yet.")
+                faction_value = int(p.get("faction_standing", {}).get(faction_key, 50))
+                st.metric(faction_label, f"{faction_value}/100")
+                st.progress(faction_value / 100)
+        people_cols = st.columns(2, gap="medium")
+        with people_cols[0]:
+            with st.container(border=True):
+                st.markdown("#### Allies")
+                if p.get("allies"):
+                    for ally in p["allies"]:
+                        st.markdown(f"<div class='mp-person-pill'>✓ {html.escape(str(ally))}</div>", unsafe_allow_html=True)
+                else:
+                    st.caption("No established allies yet.")
+        with people_cols[1]:
+            with st.container(border=True):
+                st.markdown("#### Rivals")
+                if p.get("rivals"):
+                    for rival in p["rivals"]:
+                        st.markdown(f"<div class='mp-person-pill rival'>! {html.escape(str(rival))}</div>", unsafe_allow_html=True)
+                else:
+                    st.caption("No declared rivals yet.")
         if remaining > 0:
+            st.markdown("### Political networking")
             network_cols = st.columns(2, gap="medium")
-            for idx, network_action in enumerate(PHASE2_NETWORK_ACTIONS):
+            for idx, action in enumerate(PHASE2_NETWORK_ACTIONS):
                 with network_cols[idx % 2]:
                     with st.container(border=True):
-                        st.markdown(f"**{network_action['label']}**")
-                        st.caption(network_action["description"])
-                        effects_text = _effect_summary(network_action.get("effects", {}))
-                        if effects_text:
-                            st.caption(effects_text)
-                        if st.button(
-                            "Take political action",
-                            key=f"phase2_network_{p['career_term']}_{p['career_year']}_{p['career_session']}_{network_action['id']}",
-                            use_container_width=True,
-                        ):
-                            _resolve_network_action(p, network_action)
+                        st.markdown(f"**{action['label']}**")
+                        st.write(action["description"])
+                        summary = _effect_summary(action.get("effects", {}))
+                        if summary:
+                            st.caption(summary)
+                        action_id = f"network_{action['id']}"
+                        if st.button("Take political action", key=f"phase2_network_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}", disabled=action_id in used, use_container_width=True):
+                            _resolve_network_action(p, action)
+        st.markdown("### Parliamentary standards")
+        if int(p.get("ethics_risk", 0)) >= 3:
+            st.error(f"High standards risk: {p['ethics_risk']}/5. Another transparency lapse could trigger severe political consequences.")
+        elif int(p.get("ethics_risk", 0)) >= 1:
+            st.warning(f"Standards risk: {p['ethics_risk']}/5. Declaration, transparency and proper process protect your reputation.")
         else:
-            st.caption("Your action slots are full. End the session to make more political moves.")
-
-    st.markdown("### 📬 Constituency inbox")
-    st.caption("Three fictional constituent cases arrive each session. Choose one of the responses below; resolving a case uses one of your two career-action slots. A case matching your campaign priority earns a small extra local-support bonus.")
-    inbox_cols = st.columns(3, gap="medium")
-    for index, case in enumerate(_current_inbox_cases(p)):
-        action_id = f"inbox_{case['id']}"
-        with inbox_cols[index]:
-            with st.container(border=True):
-                st.markdown(f"**{case['title']}**")
-                st.write(case["description"])
-                priority_label = MANDATES.get(case["priority"], {}).get("label", case["priority"])
-                st.caption(f"Area: {priority_label}")
-                if action_id in used:
-                    st.success("Case resolved this session")
-                else:
-                    for approach, label in (
-                        ("investigate", "Investigate and follow up"),
-                        ("parliament", "Raise it in Parliament"),
-                        ("coordinate", "Bring local partners together"),
-                    ):
-                        if st.button(
-                            label,
-                            key=f"inbox_{p['career_term']}_{p['career_year']}_{p['career_session']}_{case['id']}_{approach}",
-                            disabled=remaining <= 0,
-                            use_container_width=True,
-                        ):
-                            _resolve_inbox_case(p, case, approach)
-
-    st.markdown("### Parliamentary business")
-    st.caption("Choose two career actions per session. A vote does not use one of these action slots.")
-    if remaining:
-        actions = role.get("actions", [])
-        cols = st.columns(2, gap="medium")
-        for index, action in enumerate(actions):
-            with cols[index % 2]:
-                with st.container(border=True):
-                    st.markdown(f"**{action['label']}**")
-                    st.write(action["description"])
-                    summary = _effect_summary(action["effects"])
-                    if summary:
-                        st.caption(summary)
-                    if st.button("Take this action", key=f"career_act_{p['career_term']}_{p['career_year']}_{p['career_session']}_{p['role']}_{action['id']}",
-                                 disabled=action["id"] in used, use_container_width=True):
-                        _take_action(p, action)
-    else:
-        st.success("Session actions complete. You can advance to the next session.")
-
-    if len(used) >= ACTIONS_PER_SESSION:
-        if st.button("End session and continue", type="primary", use_container_width=True):
-            _advance(p)
-
-    st.markdown("### Promotion opportunities")
-    offers = _eligible_promotions(p)
-    if offers:
-        st.success("You have earned an opportunity. Accept one appointment; you can pursue another later in your career.")
-        cols = st.columns(min(2, len(offers)), gap="medium")
-        for index, (role_id, spec) in enumerate(offers):
-            with cols[index % len(cols)]:
-                with st.container(border=True):
-                    st.markdown(f"**{ROLES[role_id]['label']}**")
-                    st.write(ROLES[role_id]["description"])
-                    if st.button(f"Accept promotion", key=f"career_promote_{p['career_term']}_{p['career_year']}_{p['role']}_{role_id}",
-                                 use_container_width=True):
-                        _accept_promotion(p, role_id, spec)
-    else:
-        next_rules = RULES.get(p["role"], {})
-        if next_rules:
-            with st.expander("Promotion requirements", expanded=False):
-                for role_id, spec in next_rules.items():
-                    st.markdown(f"**Next step: {ROLES[role_id]['label']}**")
-                    st.caption(_format_requirements(spec))
-        else:
-            st.caption("You have reached the top role available in this career path. Focus on retaining power at the next election.")
-
-    with st.expander("📝 Westminster school report cards", expanded=bool(p.get("last_annual_report"))):
+            st.success("Standards risk is low. Continue declaring interests and explaining decisions transparently.")
+        if _leadership_eligible(p):
+            st.markdown("### Party leadership")
+            st.caption("A fictional internal party leadership contest. The outcome reflects your stats, faction support and chosen approach.")
+            strategy_key = st.selectbox("Leadership strategy", list(LEADERSHIP_STRATEGIES), format_func=lambda key: LEADERSHIP_STRATEGIES[key]["label"], key=f"leadership_strategy_{p['career_term']}_{p['career_year']}_{p['career_session']}")
+            st.caption(LEADERSHIP_STRATEGIES[strategy_key]["description"])
+            label = "Test your mandate in a confidence ballot" if p.get("role") == "prime_minister" else "Contest the party leadership"
+            if st.button(label, key=f"leadership_contest_{p['career_term']}_{p['career_year']}_{p['career_session']}", disabled=remaining <= 0 or "leadership_contest" in used, type="primary", use_container_width=True):
+                _run_leadership_contest(p, strategy_key)
+        elif int(p.get("career_total_years", 0)) < 4 or int(stats.get("party_trust", 0)) < 70:
+            st.caption("Leadership contests unlock for senior politicians with enough parliamentary experience, trust and influence.")
+        if p.get("role") == "prime_minister":
+            st.markdown("### Prime Minister's Cabinet")
+            reshuffle_cols = st.columns(3, gap="medium")
+            for idx, (option_key, option) in enumerate(CABINET_RESHUFFLE_OPTIONS.items()):
+                with reshuffle_cols[idx]:
+                    with st.container(border=True):
+                        st.markdown(f"**{option['label']}**")
+                        st.write(option["description"])
+                        st.caption(_effect_summary(option["effects"]))
+                        if st.button("Carry out reshuffle", key=f"reshuffle_{p['career_term']}_{p['career_year']}_{p['career_session']}_{option_key}", disabled=remaining <= 0 or "cabinet_reshuffle" in used, use_container_width=True):
+                            _run_cabinet_reshuffle(p, option_key)
+        st.markdown("### Annual Westminster report cards")
         reports = list(p.get("annual_reports", []))
         if reports:
             for report in reversed(reports[-5:]):
-                st.markdown(f"**Term {report['term']} · Year {report['year']} — Grade {report['grade']} ({report['score']}/100)**")
-                st.caption(f"Strongest subject: {report['strongest']} · Focus for improvement: {report['focus']}")
-                st.caption(f"Actions: {report['actions_taken']} · Commons votes: {report['votes_cast']} · Followed whip: {report['whips_followed']}")
-                if report.get("portfolio"):
-                    st.caption(f"{report['portfolio']} delivery rating: {report['department_score']}/100")
-                if report.get("ethics_risk", 0) >= 2:
-                    st.warning("Standards and transparency need attention in the next year.")
+                with st.container(border=True):
+                    st.markdown(f"**Term {report['term']} · Year {report['year']} — Grade {report['grade']} ({report['score']}/100)**")
+                    st.caption(f"Strongest subject: {report['strongest']} · Focus for improvement: {report['focus']}")
+                    st.caption(f"Actions: {report['actions_taken']} · Commons votes: {report['votes_cast']} · Followed whip: {report['whips_followed']}")
+                    if report.get("portfolio"):
+                        st.caption(f"{report['portfolio']} delivery rating: {report['department_score']}/100")
         else:
-            st.caption("Your first annual report card will be created when you finish the parliamentary year's third session.")
+            st.caption("Your first annual report card appears after the end of your first parliamentary year.")
+        with st.expander("Voting record", expanded=False):
+            votes = list(p.get("vote_history", []))
+            if votes:
+                for item in reversed(votes[-12:]):
+                    st.markdown(f"**{item['vote']}** · {item['title']}")
+                    st.caption(f"Term {item['term']}, year {item['year']}, session {item['session']} · whip: {item['party_whip']} · {item.get('effects_summary', 'No stat change')}")
+            else:
+                st.caption("Votes will appear after your first Commons division.")
+        with st.expander("Full career record", expanded=False):
+            for item in reversed(p.get("history", [])[-20:]):
+                st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
+                st.caption(item["text"])
 
-    with st.expander("🗳️ Voting record", expanded=False):
-        votes = list(p.get("vote_history", []))
-        if votes:
-            for item in reversed(votes[-12:]):
-                st.markdown(f"**{item['vote']}** · {item['title']}")
-                st.caption(f"Term {item['term']}, year {item['year']}, session {item['session']} · party whip: {item['party_whip']} · {item.get('effects_summary', 'No stat change')}")
-        else:
-            st.caption("Your votes will appear here after the first Commons division.")
-
-    with st.expander("Career record & recent decisions", expanded=False):
-        for item in reversed(p["history"][-12:]):
-            st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
-            st.caption(item["text"])
+    if len(used) >= ACTIONS_PER_SESSION:
+        st.divider()
+        st.warning("Your two career-action slots are used. You can still cast the current Commons vote, then end the session.")
+    st.markdown("<div class='mp-footer-note'>Fictionalised UK parliamentary career simulator · Constituency boundaries use the July 2024 register · No live party whip or current-affairs claims</div>", unsafe_allow_html=True)
