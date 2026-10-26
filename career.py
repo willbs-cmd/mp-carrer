@@ -1453,6 +1453,8 @@ def _canonical_party_name(name):
     text = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii").casefold()
     if "sinn fein" in text:
         return "Sinn Féin"
+    if "social democratic" in text or text == "sdlp":
+        return "Social Democratic and Labour Party (SDLP)"
     if "labour" in text:
         return "Labour"
     if "conservative" in text and "independent" in text:
@@ -1502,7 +1504,8 @@ def _fetch_commons_page(skip):
     """Fetch one page of current Commons members from the official UK Parliament API."""
     response = requests.get(
         UK_PARLIAMENT_API,
-        params={"House": 1, "skip": int(skip), "take": 20},
+        params={"House": 1, "IsCurrentMember": True, "skip": int(skip), "take": 20},
+        headers={"Accept": "application/json", "User-Agent": "MP-Career-Simulator/1.0"},
         timeout=20,
     )
     response.raise_for_status()
@@ -1690,7 +1693,7 @@ def _render_parliament_tab():
             st.info(
                 f"**{chosen['constituency']}** · {chosen['party']} · MP: {chosen['mp']}"
             )
-        fig = px.choropleth_mapbox(
+        fig = px.choropleth_map(
             seat_df,
             geojson=geometry,
             locations="code",
@@ -1704,7 +1707,7 @@ def _render_parliament_tab():
                 "code": True,
                 "constituency": False,
             },
-            mapbox_style="open-street-map",
+            map_style="open-street-map",
             center={"lat": 54.55, "lon": -3.1},
             zoom=3.25,
             opacity=0.86,
