@@ -210,6 +210,42 @@ PHASE2_NETWORK_ACTIONS = [
 ]
 
 
+GOVERNMENT_ROLES = {"junior_minister", "minister_of_state", "secretary_state", "chancellor", "prime_minister"}
+
+PORTFOLIOS = {
+    "health": {"label": "Health and Social Care", "targets": ["Improve NHS waiting times", "Strengthen GP access", "Improve mental health support"]},
+    "education": {"label": "Education", "targets": ["Raise school standards", "Improve attendance and inclusion", "Expand technical education and apprenticeships"]},
+    "treasury": {"label": "HM Treasury", "targets": ["Support sustainable growth", "Maintain fiscal credibility", "Improve productivity and investment"]},
+    "housing": {"label": "Housing, Communities and Local Government", "targets": ["Increase affordable housing delivery", "Improve local-authority capacity", "Support high streets and town centres"]},
+    "transport": {"label": "Transport", "targets": ["Improve rail and bus reliability", "Deliver safer local roads", "Improve regional transport links"]},
+    "energy": {"label": "Energy Security and Net Zero", "targets": ["Accelerate grid connections", "Improve home energy efficiency", "Support reliable low-carbon power"]},
+    "home_office": {"label": "Home Office", "targets": ["Improve neighbourhood safety", "Reduce casework backlogs", "Strengthen public-service accountability"]},
+    "justice": {"label": "Justice", "targets": ["Reduce court backlogs", "Improve access to legal support", "Strengthen victim support"]},
+    "defence": {"label": "Defence", "targets": ["Improve service readiness", "Support service personnel and families", "Strengthen procurement accountability"]},
+    "work_pensions": {"label": "Work and Pensions", "targets": ["Improve routes into work", "Strengthen disability employment support", "Improve pensioner security"]},
+    "foreign_office": {"label": "Foreign, Commonwealth and Development Office", "targets": ["Build diplomatic partnerships", "Improve aid effectiveness", "Support British nationals overseas"]},
+    "cabinet_office": {"label": "Cabinet Office and Government Coordination", "targets": ["Improve cross-government delivery", "Strengthen crisis preparedness", "Improve public-service standards"]},
+}
+
+DEPARTMENT_ACTIONS = [
+    {"id": "delivery_plan", "label": "Drive a departmental delivery plan", "description": "Set milestones, assign responsibility and publish a delivery timetable.", "effects": {"policy_expertise": 3, "parliamentary_influence": 2, "party_trust": 1}, "score": 8, "progress": 25},
+    {"id": "frontline_visit", "label": "Visit frontline services", "description": "Hear directly from staff and the public before changing how the service works.", "effects": {"constituency_support": 2, "integrity": 2, "policy_expertise": 2}, "score": 7, "progress": 20},
+    {"id": "committee_accountability", "label": "Defend results before a Select Committee", "description": "Explain what has improved, admit what has not, and set out how you will fix it.", "effects": {"public_profile": 2, "parliamentary_influence": 3, "integrity": 1}, "score": 5, "progress": 15},
+    {"id": "budget_settlement", "label": "Negotiate funding with the Treasury", "description": "Make a case for resources and explain the trade-offs or savings needed to pay for them.", "effects": {"party_trust": 2, "policy_expertise": 2, "parliamentary_influence": 2}, "score": 6, "progress": 18},
+]
+
+LEADERSHIP_STRATEGIES = {
+    "quiet": {"label": "Quietly build endorsements", "description": "Talk to MPs privately, negotiate policy commitments and avoid public confrontation.", "bonus": 3, "effects": {"party_trust": 2, "parliamentary_influence": 2}},
+    "backbench": {"label": "Mobilise backbench support", "description": "Build a coalition of colleagues who want a change in direction.", "bonus": 5, "effects": {"public_profile": 2, "party_trust": -1}},
+    "public": {"label": "Launch a public campaign", "description": "Make a direct public case for your leadership, risking a backlash from senior colleagues.", "bonus": 2, "effects": {"public_profile": 5, "party_trust": -3}},
+}
+
+CABINET_RESHUFFLE_OPTIONS = {
+    "reward_delivery": {"label": "Reward departments that deliver", "description": "Promote a delivery-first approach and signal that results matter.", "effects": {"party_trust": 3, "parliamentary_influence": 2}, "factions": {"party_leadership": 4, "backbenchers": 2}},
+    "balance_factions": {"label": "Rebalance the Cabinet", "description": "Offer different wings of the party a clearer role in government.", "effects": {"party_trust": 1, "public_profile": 1}, "factions": {"party_leadership": 2, "backbenchers": 4, "local_party": 2}},
+    "remove_rival": {"label": "Move a rival out of the inner circle", "description": "Tighten control of the Cabinet, but risk resentment among colleagues.", "effects": {"party_trust": -2, "parliamentary_influence": 3, "public_profile": 2}, "factions": {"party_leadership": 4, "backbenchers": -5}},
+}
+
 
 def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
                 ambition="policy_specialist", local_mandate="public_services", party="Labour"):
@@ -267,6 +303,14 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "rivals": [],
         "ethics_risk": 0,
         "news_responses_by_session": {},
+        "portfolio_id": None,
+        "portfolio_target": None,
+        "department_score": 0,
+        "department_progress": 0,
+        "annual_reports": [],
+        "leadership_contests": [],
+        "leadership_cooldown_year": 0,
+        "reshuffle_log": [],
     }
 
 
@@ -310,6 +354,23 @@ def _profile():
     p.setdefault("rivals", [])
     p.setdefault("ethics_risk", 0)
     p.setdefault("news_responses_by_session", {})
+    p.setdefault("portfolio_id", None)
+    p.setdefault("portfolio_target", None)
+    p.setdefault("department_score", 0)
+    p.setdefault("department_progress", 0)
+    p.setdefault("annual_reports", [])
+    p.setdefault("leadership_contests", [])
+    p.setdefault("leadership_cooldown_year", 0)
+    p.setdefault("reshuffle_log", [])
+    if p.get("role") in GOVERNMENT_ROLES:
+        if p.get("portfolio_id") not in PORTFOLIOS:
+            stable_mix = sum((i + 1) * ord(ch) for i, ch in enumerate(p.get("name", "MP")))
+            portfolio_ids = list(PORTFOLIOS)
+            p["portfolio_id"] = portfolio_ids[(stable_mix + int(p.get("career_total_years", 0))) % len(portfolio_ids)]
+            p["portfolio_target"] = PORTFOLIOS[p["portfolio_id"]]["targets"][0]
+            p["department_score"] = max(40, int(p.get("department_score", 0)))
+        if p.get("portfolio_target") not in PORTFOLIOS[p["portfolio_id"]]["targets"]:
+            p["portfolio_target"] = PORTFOLIOS[p["portfolio_id"]]["targets"][0]
     return p
 
 
@@ -625,13 +686,213 @@ def _resolve_network_action(p, action):
     )
 
 
+def _set_portfolio_and_target(p, portfolio_id, target):
+    """Change a minister's portfolio priorities as a career action."""
+    used = _current_actions(p)
+    action_id = "portfolio_target"
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used or portfolio_id not in PORTFOLIOS:
+        return
+    spec = PORTFOLIOS[portfolio_id]
+    if target not in spec["targets"]:
+        target = spec["targets"][0]
+    changed_portfolio = p.get("portfolio_id") != portfolio_id
+    p["portfolio_id"] = portfolio_id
+    p["portfolio_target"] = target
+    if changed_portfolio:
+        p["department_score"] = max(35, int(p.get("department_score", 0)))
+        p["department_progress"] = 0
+    used.append(action_id)
+    narrative = f"You set {spec['label']} priorities around: {target}."
+    _record(p, "Set ministerial portfolio and target", narrative)
+    p["last_event"] = narrative
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _run_department_action(p, action):
+    """Apply a portfolio delivery action; it shares the same two action slots."""
+    used = _current_actions(p)
+    action_id = f"department_{action['id']}"
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used:
+        return
+    if p.get("portfolio_id") not in PORTFOLIOS:
+        return
+    _apply_effects(p, action["effects"])
+    used.append(action_id)
+    p["department_score"] = _clip(int(p.get("department_score", 40)) + int(action["score"]))
+    p["department_progress"] = _clip(int(p.get("department_progress", 0)) + int(action["progress"]))
+    portfolio = PORTFOLIOS[p["portfolio_id"]]
+    narrative = f"{action['description']} Delivery rating is now {p['department_score']}/100 and target progress is {p['department_progress']}%."
+    summary = _effect_summary(action["effects"])
+    if summary:
+        narrative += " Career effects: " + summary + "."
+    _record(p, f"{portfolio['label']}: {action['label']}", narrative)
+    p["last_event"] = f"{action['label']}: delivery rating {p['department_score']}/100."
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _record_annual_report(p):
+    """Create a school-report-style annual review from the previous parliamentary year."""
+    year = int(p.get("career_year", 1))
+    term = int(p.get("career_term", 1))
+    if any(int(r.get("term", -1)) == term and int(r.get("year", -1)) == year for r in p.get("annual_reports", [])):
+        return
+    stats = p.get("stats", {})
+    score = (
+        .20 * stats.get("constituency_support", 0)
+        + .16 * stats.get("party_trust", 0)
+        + .15 * stats.get("parliamentary_influence", 0)
+        + .13 * stats.get("public_profile", 0)
+        + .13 * stats.get("policy_expertise", 0)
+        + .13 * stats.get("integrity", 0)
+        + .10 * stats.get("campaign_readiness", 30)
+    )
+    score = round(score, 1)
+    grade = "A" if score >= 85 else "B" if score >= 75 else "C" if score >= 65 else "D" if score >= 55 else "E" if score >= 45 else "F"
+    labels = {key: value for key, value in ATTRIBUTES.items()}
+    ranked = sorted(stats.items(), key=lambda item: item[1], reverse=True)
+    strongest = labels.get(ranked[0][0], ranked[0][0].replace("_", " ").title()) if ranked else "No data"
+    weakest = labels.get(ranked[-1][0], ranked[-1][0].replace("_", " ").title()) if ranked else "No data"
+    year_prefix = f"{term}:{year}:"
+    year_actions = sum(len(actions) for key, actions in p.get("actions_by_session", {}).items() if key.startswith(year_prefix))
+    year_votes = [v for v in p.get("vote_history", []) if int(v.get("term", -1)) == term and int(v.get("year", -1)) == year]
+    followed = sum(1 for vote in year_votes if vote.get("followed_whip"))
+    report = {
+        "term": term, "year": year, "score": score, "grade": grade,
+        "strongest": strongest, "focus": weakest,
+        "actions_taken": year_actions, "votes_cast": len(year_votes), "whips_followed": followed,
+        "department_score": int(p.get("department_score", 0)) if p.get("role") in GOVERNMENT_ROLES else None,
+        "portfolio": PORTFOLIOS.get(p.get("portfolio_id"), {}).get("label") if p.get("role") in GOVERNMENT_ROLES else None,
+        "ethics_risk": int(p.get("ethics_risk", 0)),
+    }
+    p.setdefault("annual_reports", []).append(report)
+    p["annual_reports"] = p["annual_reports"][-15:]
+    label = f"Westminster school report: Grade {grade} ({score}/100)"
+    report_text = f"Year {year} review complete. Strongest subject: {strongest}. Next year's focus: {weakest}. You used {year_actions} career-action slots and cast {len(year_votes)} Commons vote(s)."
+    if report["department_score"] is not None:
+        report_text += f" Department delivery rating: {report['department_score']}/100."
+    if report["ethics_risk"] >= 2:
+        report_text += " Parliamentary standards risk remains a concern."
+    _record(p, label, report_text)
+    p["last_annual_report"] = report
+    p["last_event"] = report_text
+
+
+def _leadership_eligible(p):
+    if int(p.get("leadership_cooldown_year", 0)) > int(p.get("career_total_years", 0)):
+        return False
+    if p.get("role") in {"secretary_state", "chancellor", "prime_minister"}:
+        return True
+    return (
+        int(p.get("career_total_years", 0)) >= 4
+        and int(p.get("stats", {}).get("party_trust", 0)) >= 70
+        and int(p.get("stats", {}).get("parliamentary_influence", 0)) >= 60
+        and int(p.get("stats", {}).get("public_profile", 0)) >= 55
+    )
+
+
+def _run_leadership_contest(p, strategy_key):
+    """Run a fictional party leadership contest or an incumbent confidence ballot."""
+    used = _current_actions(p)
+    action_id = "leadership_contest"
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used or not _leadership_eligible(p):
+        return
+    strategy = LEADERSHIP_STRATEGIES[strategy_key]
+    _apply_effects(p, strategy["effects"])
+    stats = p["stats"]
+    factions = p["faction_standing"]
+    score = (
+        .30 * stats.get("party_trust", 0)
+        + .22 * stats.get("parliamentary_influence", 0)
+        + .17 * stats.get("public_profile", 0)
+        + .13 * factions.get("party_leadership", 50)
+        + .13 * factions.get("backbenchers", 50)
+        + .05 * factions.get("cross_party", 35)
+        + strategy["bonus"]
+    )
+    seed = int(st.session_state.get("seed", 32458))
+    mix = int(p.get("career_total_years", 0)) * 701 + int(p.get("career_term", 1)) * 101 + int(p.get("career_session", 1)) * 37
+    outcome_score = round(score + random.Random(seed + mix).uniform(-7, 7), 1)
+    won = outcome_score >= 62
+    was_pm = p.get("role") == "prime_minister"
+    record = {
+        "term": int(p["career_term"]), "year": int(p["career_year"]),
+        "strategy": strategy["label"], "score": outcome_score, "won": won,
+        "was_pm": was_pm,
+    }
+    p.setdefault("leadership_contests", []).append(record)
+    p["leadership_cooldown_year"] = int(p.get("career_total_years", 0)) + 2
+    used.append(action_id)
+    if won and not was_pm:
+        old_role = p.get("role", "mp")
+        p["role"] = "prime_minister"
+        p["last_promotion_total_year"] = int(p.get("career_total_years", 0))
+        p["stats"]["party_trust"] = _clip(p["stats"].get("party_trust", 0) + 3)
+        p["stats"]["parliamentary_influence"] = _clip(p["stats"].get("parliamentary_influence", 0) + 2)
+        p["stats"]["public_profile"] = _clip(p["stats"].get("public_profile", 0) + 3)
+        p["promotion_log"].append({"from": ROLES.get(old_role, {}).get("label", old_role), "to": ROLES["prime_minister"]["label"], "total_year": int(p.get("career_total_years", 0)), "term": int(p["career_term"]), "year": int(p["career_year"]), "via": "party leadership contest"})
+        stable_mix = sum((i + 1) * ord(ch) for i, ch in enumerate(p.get("name", "MP")))
+        p["portfolio_id"] = list(PORTFOLIOS)[stable_mix % len(PORTFOLIOS)]
+        p["portfolio_target"] = PORTFOLIOS[p["portfolio_id"]]["targets"][0]
+        p["department_score"] = max(45, int(p.get("department_score", 0)))
+        p["department_progress"] = 0
+        narrative = f"You win the fictional party leadership contest with a contest score of {outcome_score}. You become Prime Minister."
+    elif won:
+        p["stats"]["party_trust"] = _clip(p["stats"].get("party_trust", 0) + 4)
+        p["faction_standing"]["party_leadership"] = _clip(factions.get("party_leadership", 50) + 6)
+        narrative = f"You survive the fictional party confidence ballot with a score of {outcome_score}. The Cabinet remains under your leadership."
+    else:
+        p["stats"]["party_trust"] = _clip(p["stats"].get("party_trust", 0) - (10 if was_pm else 5))
+        p["faction_standing"]["party_leadership"] = _clip(factions.get("party_leadership", 50) - 5)
+        p["faction_standing"]["backbenchers"] = _clip(factions.get("backbenchers", 50) + 3)
+        if was_pm:
+            p["role"] = "mp"
+            p["portfolio_id"] = None
+            p["department_score"] = 0
+            p["department_progress"] = 0
+            narrative = f"You lose the fictional party confidence ballot (score {outcome_score}) and leave the premiership, returning to the backbenches."
+        else:
+            narrative = f"Your leadership bid falls short (contest score {outcome_score}). Party trust takes a hit, so you must rebuild support."
+    p["last_event"] = narrative
+    _record(p, "Party leadership contest", narrative)
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _run_cabinet_reshuffle(p, option_key):
+    """Apply a fictional prime-ministerial reshuffle decision."""
+    used = _current_actions(p)
+    action_id = "cabinet_reshuffle"
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used or p.get("role") != "prime_minister":
+        return
+    option = CABINET_RESHUFFLE_OPTIONS[option_key]
+    _apply_effects(p, option["effects"])
+    for faction, delta in option.get("factions", {}).items():
+        p["faction_standing"][faction] = _clip(p["faction_standing"].get(faction, 50) + delta)
+    used.append(action_id)
+    record = {"term": int(p["career_term"]), "year": int(p["career_year"]), "choice": option["label"]}
+    p.setdefault("reshuffle_log", []).append(record)
+    narrative = f"Cabinet reshuffle: {option['label']}. {option['description']}"
+    _record(p, "Cabinet reshuffle", narrative)
+    p["last_event"] = narrative
+    st.session_state.career_profile = p
+    st.rerun()
+
+
 def _requirements_met(p, spec):
     stats = p["stats"]
-    return (
+    requirements_ok = (
         p["career_total_years"] >= int(spec.get("min_years", 0))
         and p["career_total_years"] > int(p.get("last_promotion_total_year", 0))
         and all(float(stats.get(key, 0)) >= float(value) for key, value in spec.get("requirements", {}).items())
     )
+    delivery_threshold = {"junior_minister": 35, "minister_of_state": 42, "secretary_state": 48, "chancellor": 52}
+    delivery_ok = (
+        p.get("role") not in delivery_threshold
+        or int(p.get("department_score", 0)) >= delivery_threshold[p["role"]]
+    )
+    return requirements_ok and delivery_ok
 
 
 def _eligible_promotions(p):
@@ -659,6 +920,13 @@ def _accept_promotion(p, role_id, spec):
     _apply_effects(p, bonus)
     p["role"] = role_id
     p["last_promotion_total_year"] = int(p["career_total_years"])
+    if role_id in GOVERNMENT_ROLES:
+        stable_mix = sum((i + 1) * ord(ch) for i, ch in enumerate(p.get("name", "MP")))
+        portfolio_ids = list(PORTFOLIOS)
+        p["portfolio_id"] = portfolio_ids[(stable_mix + int(p.get("career_total_years", 0)) + ROLES[role_id]["rank"]) % len(portfolio_ids)]
+        p["portfolio_target"] = PORTFOLIOS[p["portfolio_id"]]["targets"][0]
+        p["department_score"] = max(45, int(p.get("department_score", 0)))
+        p["department_progress"] = 0
     entry = {
         "from": old_label,
         "to": new_label,
@@ -732,6 +1000,7 @@ def _advance(p):
         p["last_event"] = f"Session {p['career_session']} begins. Choose two actions to advance your career."
         _record(p, f"Parliamentary session {p['career_session']}", p["last_event"])
     elif int(p["career_year"]) < ELECTION_AFTER:
+        _record_annual_report(p)
         p["career_total_years"] = int(p["career_total_years"]) + 1
         p["career_year"] = int(p["career_year"]) + 1
         p["career_session"] = 1
@@ -740,6 +1009,7 @@ def _advance(p):
         p["last_event"] = f"Year {p['career_year']} begins. Experience has improved your policy expertise and integrity slightly."
         _record(p, f"Parliamentary year {p['career_year']}", p["last_event"])
     else:
+        _record_annual_report(p)
         p["career_total_years"] = int(p["career_total_years"]) + 1
         _hold_election(p)
         if not p["game_over"]:
@@ -791,6 +1061,17 @@ def render():
             st.session_state.game_mode = "chancellor"
             st.session_state.career_profile = None
             st.rerun()
+        stats_now = p.get("stats", {})
+        legacy_score = round(sum(float(stats_now.get(key, 0)) for key in ATTRIBUTES) / max(1, len(ATTRIBUTES)), 1)
+        legacy_grade = "A" if legacy_score >= 85 else "B" if legacy_score >= 75 else "C" if legacy_score >= 65 else "D" if legacy_score >= 55 else "E" if legacy_score >= 45 else "F"
+        st.markdown("### 🏆 Final Westminster career report")
+        summary_cols = st.columns(4, gap="medium")
+        summary_cols[0].metric("Career grade", legacy_grade)
+        summary_cols[1].metric("Final standing", f"{legacy_score}/100")
+        summary_cols[2].metric("Years served", int(p.get("career_total_years", 0)))
+        summary_cols[3].metric("Promotions", len(p.get("promotion_log", [])))
+        st.caption(f"General elections won: {max(0, int(p.get('seats_won', 1)) - 1)} · Allies: {len(p.get('allies', []))} · Rivals: {len(p.get('rivals', []))} · Final standards risk: {int(p.get('ethics_risk', 0))}/5")
+        st.caption("Your final grade is a game summary of your career attributes, not an assessment of a real politician.")
         with st.expander("Career record", expanded=True):
             for item in reversed(p["history"][-15:]):
                 st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
@@ -838,6 +1119,60 @@ def render():
                 if _cast_vote(p, vote_choice):
                     st.rerun()
 
+    if p.get("role") in GOVERNMENT_ROLES:
+        st.markdown("### 🏛️ Government portfolio and delivery")
+        portfolio_id = p.get("portfolio_id") if p.get("portfolio_id") in PORTFOLIOS else list(PORTFOLIOS)[0]
+        portfolio = PORTFOLIOS[portfolio_id]
+        portfolio_cols = st.columns(3, gap="medium")
+        with portfolio_cols[0]:
+            st.metric("Department delivery rating", f"{int(p.get('department_score', 40))}/100")
+        with portfolio_cols[1]:
+            st.metric("Target progress", f"{int(p.get('department_progress', 0))}%")
+        with portfolio_cols[2]:
+            st.metric("Current target", portfolio["label"])
+        target_progress = int(p.get("department_progress", 0))
+        st.progress(target_progress / 100, text=f"Delivery against target: {target_progress}%")
+        with st.expander("Manage portfolio and policy target", expanded=False):
+            selected_portfolio = st.selectbox(
+                "Portfolio",
+                list(PORTFOLIOS),
+                index=list(PORTFOLIOS).index(portfolio_id),
+                format_func=lambda key: PORTFOLIOS[key]["label"],
+                key=f"portfolio_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+            )
+            target_pool = PORTFOLIOS[selected_portfolio]["targets"]
+            current_target = p.get("portfolio_target")
+            selected_target = st.selectbox(
+                "Delivery target",
+                target_pool,
+                index=target_pool.index(current_target) if current_target in target_pool else 0,
+                key=f"portfolio_target_select_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+            )
+            if st.button(
+                "Set portfolio and target (uses 1 action)",
+                key=f"set_portfolio_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+                disabled=remaining <= 0 or "portfolio_target" in used,
+                use_container_width=True,
+            ):
+                _set_portfolio_and_target(p, selected_portfolio, selected_target)
+        st.caption(f"Current policy target: **{p.get('portfolio_target') or portfolio['targets'][0]}**. Delivery rating is part of senior promotion eligibility.")
+        delivery_cols = st.columns(2, gap="medium")
+        for index, action in enumerate(DEPARTMENT_ACTIONS):
+            with delivery_cols[index % 2]:
+                with st.container(border=True):
+                    st.markdown(f"**{action['label']}**")
+                    st.write(action["description"])
+                    summary = _effect_summary(action["effects"])
+                    st.caption(f"{summary} · +{action['score']} delivery rating · +{action['progress']}% target progress")
+                    action_id = f"department_{action['id']}"
+                    if st.button(
+                        "Take delivery action",
+                        key=f"delivery_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}",
+                        disabled=remaining <= 0 or action_id in used,
+                        use_container_width=True,
+                    ):
+                        _run_department_action(p, action)
+
     st.markdown("### 📰 Westminster news desk")
     st.caption("Each parliamentary session brings a fictional political story or dilemma. Responding uses one of your two career-action slots; leaving a story alone has no immediate effect.")
     news_event = _current_phase2_news(p)
@@ -866,6 +1201,45 @@ def render():
                         _resolve_news_choice(p, news_event, choice)
         else:
             st.caption("You have used both action slots. You can move on without responding to this story.")
+    if _leadership_eligible(p):
+        st.markdown("### 🏁 Party leadership")
+        leadership_label = "Test your mandate in a party confidence ballot" if p.get("role") == "prime_minister" else "Contest the party leadership"
+        st.caption("A fictional internal party contest. The result is influenced by party trust, parliamentary influence, public profile, faction support and your chosen strategy.")
+        contest_strategy = st.selectbox(
+            "Leadership strategy",
+            list(LEADERSHIP_STRATEGIES),
+            format_func=lambda key: f"{LEADERSHIP_STRATEGIES[key]['label']} — {LEADERSHIP_STRATEGIES[key]['description']}",
+            key=f"leadership_strategy_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+        )
+        if st.button(
+            leadership_label,
+            key=f"leadership_contest_{p['career_term']}_{p['career_year']}_{p['career_session']}",
+            disabled=remaining <= 0 or "leadership_contest" in used,
+            type="primary",
+            use_container_width=True,
+        ):
+            _run_leadership_contest(p, contest_strategy)
+
+    if p.get("role") == "prime_minister":
+        st.markdown("### 🧑‍💼 Prime Minister's Cabinet")
+        st.caption("Reshuffles use a career-action slot and change your relationships with party factions.")
+        reshuffle_cols = st.columns(3, gap="medium")
+        for idx, (option_key, option) in enumerate(CABINET_RESHUFFLE_OPTIONS.items()):
+            with reshuffle_cols[idx]:
+                with st.container(border=True):
+                    st.markdown(f"**{option['label']}**")
+                    st.caption(option["description"])
+                    effect_text = _effect_summary(option["effects"])
+                    if effect_text:
+                        st.caption(effect_text)
+                    if st.button(
+                        "Carry out reshuffle",
+                        key=f"reshuffle_{p['career_term']}_{p['career_year']}_{p['career_session']}_{option_key}",
+                        disabled=remaining <= 0 or "cabinet_reshuffle" in used,
+                        use_container_width=True,
+                    ):
+                        _run_cabinet_reshuffle(p, option_key)
+
     with st.expander("🤝 Party factions, allies and rivals", expanded=False):
         st.caption("Factions and named colleagues are fictional game characters, not descriptions of real MPs. Choices here use a career-action slot.")
         faction_cols = st.columns(4, gap="small")
@@ -970,6 +1344,20 @@ def render():
                     st.caption(_format_requirements(spec))
         else:
             st.caption("You have reached the top role available in this career path. Focus on retaining power at the next election.")
+
+    with st.expander("📝 Westminster school report cards", expanded=bool(p.get("last_annual_report"))):
+        reports = list(p.get("annual_reports", []))
+        if reports:
+            for report in reversed(reports[-5:]):
+                st.markdown(f"**Term {report['term']} · Year {report['year']} — Grade {report['grade']} ({report['score']}/100)**")
+                st.caption(f"Strongest subject: {report['strongest']} · Focus for improvement: {report['focus']}")
+                st.caption(f"Actions: {report['actions_taken']} · Commons votes: {report['votes_cast']} · Followed whip: {report['whips_followed']}")
+                if report.get("portfolio"):
+                    st.caption(f"{report['portfolio']} delivery rating: {report['department_score']}/100")
+                if report.get("ethics_risk", 0) >= 2:
+                    st.warning("Standards and transparency need attention in the next year.")
+        else:
+            st.caption("Your first annual report card will be created when you finish the parliamentary year's third session.")
 
     with st.expander("🗳️ Voting record", expanded=False):
         votes = list(p.get("vote_history", []))
