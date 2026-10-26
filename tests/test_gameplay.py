@@ -40,6 +40,31 @@ class CareerGameplayTests(unittest.TestCase):
         for portfolio in career.PORTFOLIOS.values():
             self.assertGreaterEqual(len(portfolio["targets"]), 2)
 
+    def test_private_members_bill_and_petition_content_exists(self):
+        self.assertGreaterEqual(len(career.PRIVATE_MEMBERS_BILLS), 6)
+        self.assertGreaterEqual(len(career.PETITION_TOPICS), 6)
+        for bill in career.PRIVATE_MEMBERS_BILLS.values():
+            self.assertIn(bill["priority"], career.MANDATES)
+            self.assertTrue(bill["label"])
+            self.assertTrue(bill["description"])
+        for topic in career.PETITION_TOPICS.values():
+            self.assertIn(topic["priority"], career.MANDATES)
+            self.assertTrue(topic["label"])
+            self.assertTrue(topic["description"])
+        self.assertIsNone(self.profile["private_members_bill"])
+        self.assertEqual(self.profile["private_bill_history"], [])
+        self.assertIsNone(self.profile["petition_campaign"])
+        self.assertEqual(self.profile["petition_history"], [])
+
+    def test_private_bill_stage_rules_and_effects_are_consistent(self):
+        valid_stages = {"drafting", "committee", "report", "assented", "defeated"}
+        self.assertEqual(set(career.PRIVATE_BILL_STAGES), valid_stages)
+        self.assertIn("sponsors", career._active_private_bill({
+            "private_members_bill": {"stage": "drafting"}
+        }) or {})
+        for bill in career.PRIVATE_MEMBERS_BILLS.values():
+            self.assertIn(bill["priority"], career.MANDATES)
+
     def test_uk_party_tally_weights_are_complete_and_balanced(self):
         self.assertEqual(set(career.SIMULATED_PARTY_WEIGHTS), set(career.DIVISION_DATA["party_names"]))
         self.assertEqual(sum(career.SIMULATED_PARTY_WEIGHTS.values()), 100)
