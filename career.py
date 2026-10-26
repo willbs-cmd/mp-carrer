@@ -1475,7 +1475,10 @@ def render():
             st.metric(label, value, help=help_text)
 
     if p.get("last_event"):
-        st.info(p["last_event"])
+        st.markdown(
+            f"<div class='mp-event-banner'><strong>Latest update</strong><span>{html.escape(str(p['last_event']))}</span></div>",
+            unsafe_allow_html=True,
+        )
 
     if p.get("game_over"):
         stats_now = p.get("stats", {})
@@ -1505,8 +1508,8 @@ def render():
         active_petition = p.get("petition_campaign")
         petition_active = isinstance(active_petition, dict) and active_petition.get("status") == "active"
 
-        st.markdown("### Your session checklist")
-        st.caption("Use this as your guide for the current parliamentary session. A Commons vote is free; each career action uses one of your two slots.")
+        st.markdown("### Your next steps")
+        st.caption("A Commons vote is free. Everything else you choose uses one of your two career-action slots.")
         guide_cols = st.columns([1.05, 1.2, 1.05], gap="medium")
         with guide_cols[0]:
             with st.container(border=True):
@@ -1540,20 +1543,7 @@ def render():
                     if st.button(target_label, key=f"guide_action_{session_key}", use_container_width=True):
                         _set_active_tab(target_tab)
                         st.rerun()
-                    shortcut_cols = st.columns(3, gap="small")
-                    for shortcut_col, target, short_label in zip(
-                        shortcut_cols,
-                        ["Nation", "Plans", "Press"],
-                        ["Local", "Policy", "Press"],
-                    ):
-                        with shortcut_col:
-                            st.button(
-                                short_label,
-                                key=f"guide_shortcut_{session_key}_{target.lower()}",
-                                use_container_width=True,
-                                on_click=_set_active_tab,
-                                args=(target,),
-                            )
+                    st.caption("Use the navigation buttons above to choose casework, policy work, or politics and press.")
                 else:
                     st.success("Action slots complete")
                     st.caption("Cast your Commons vote, then move on to the next session.")
