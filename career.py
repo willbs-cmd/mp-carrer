@@ -47,6 +47,7 @@ PARTY_COLOURS = {
     "Labour": "#E4003B",
     "Conservative": "#0087DC",
     "Liberal Democrats": "#FAA61A",
+    "Liberal Democrat": "#FAA61A",
     "Reform UK": "#12B6CF",
     "Green Party": "#02A95C",
     "SNP": "#F6C900",
@@ -1597,7 +1598,8 @@ def _render_parliament_tab():
     top = st.columns(4, gap="medium")
     top[0].metric("Commons seats", f"{commons_total:,}")
     top[1].metric("Majority threshold", f"{PARLIAMENT_COMPOSITION['commons']['majority_threshold']:,}")
-    top[2].metric("Largest Commons party", "Labour · 404")
+    leading_party = commons_df.sort_values("Seats", ascending=False).iloc[0]
+    top[2].metric("Largest Commons party", f"{leading_party['Party']} · {int(leading_party['Seats']):,}")
     top[3].metric("Eligible Lords members", f"{lords_total:,}")
 
     commons_col, lords_col = st.columns(2, gap="large")
@@ -1775,7 +1777,7 @@ def render():
     active_tab = st.session_state.get("mp_active_nav", "Desk")
     nav_cols = st.columns(len(nav_options), gap="small")
     nav_labels = {
-        "Desk": "🏛️ Commons",
+        "Desk": "🗳️ Commons vote",
         "Nation": "🏠 Constituency",
         "Plans": "📜 Plans & bills",
         "Press": "📰 Press & party",
@@ -2404,6 +2406,9 @@ def render():
             for item in reversed(p.get("history", [])[-20:]):
                 st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
                 st.caption(item["text"])
+
+    elif active_tab == "Parliament":
+        _render_parliament_tab()
 
     elif active_tab == "Parliament":
         _render_parliament_tab()
