@@ -24,13 +24,19 @@ VOTE_OPTIONS = ("Aye", "No", "Abstain")
 
 # Abstract game-only party bloc weights (not current Commons seat counts).
 SIMULATED_PARTY_WEIGHTS = {
-    "Labour": 40,
-    "Conservative": 24,
-    "Liberal Democrats": 13,
+    "Labour": 36,
+    "Conservative": 22,
+    "Liberal Democrats": 12,
     "Reform UK": 8,
     "Green Party": 5,
-    "SNP": 6,
-    "Plaid Cymru": 4,
+    "SNP": 5,
+    "Plaid Cymru": 3,
+    "Democratic Unionist Party (DUP)": 2,
+    "Sinn Féin": 2,
+    "Alliance Party of Northern Ireland": 1,
+    "Social Democratic and Labour Party (SDLP)": 1,
+    "Ulster Unionist Party (UUP)": 1,
+    "Independent": 2,
 }
 
 
@@ -276,7 +282,7 @@ def _profile():
     p.setdefault("stats", {})
     for key, value in {
         "constituency_support": 58, "party_trust": 48, "parliamentary_influence": 24,
-        "public_profile": 25, "policy_expertise": 30, "integrity": 78
+        "public_profile": 25, "policy_expertise": 30, "integrity": 78, "campaign_readiness": 30
     }.items():
         p["stats"].setdefault(key, value)
     p.setdefault("actions_by_session", {})
