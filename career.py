@@ -1341,6 +1341,12 @@ def _advance(p):
     st.rerun()
 
 
+def _set_active_tab(tab):
+    """Switch the main navigation before Streamlit rebuilds the widgets."""
+    if tab in {"Desk", "Nation", "Plans", "Press"}:
+        st.session_state["mp_active_nav"] = tab
+
+
 def render():
     """Modern UK Westminster career dashboard, styled after an official political portal."""
     p = _profile()
@@ -1392,14 +1398,26 @@ def render():
         """,
         unsafe_allow_html=True,
     )
-    st.radio(
-        "Game section",
-        nav_options,
-        horizontal=True,
-        label_visibility="collapsed",
-        key="mp_active_nav",
-    )
+    if st.session_state.get("mp_active_nav") not in nav_options:
+        st.session_state["mp_active_nav"] = "Desk"
     active_tab = st.session_state.get("mp_active_nav", "Desk")
+    nav_cols = st.columns(4, gap="small")
+    nav_labels = {
+        "Desk": "🏛️ Commons",
+        "Nation": "🏠 Constituency",
+        "Plans": "📜 Plans & bills",
+        "Press": "📰 Press & party",
+    }
+    for nav_col, option in zip(nav_cols, nav_options):
+        with nav_col:
+            st.button(
+                nav_labels[option],
+                key=f"main_nav_{option.lower()}",
+                type="primary" if active_tab == option else "secondary",
+                use_container_width=True,
+                on_click=_set_active_tab,
+                args=(option,),
+            )
     calendar_year = 2027 + (int(p.get("career_term", 1)) - 1) * ELECTION_AFTER + int(p.get("career_year", 1)) - 1
     season_names = ("SPR", "SUM", "BUD")
     current_step = (int(p.get("career_year", 1)) - 1) * SESSIONS_PER_YEAR + int(p.get("career_session", 1)) - 1
@@ -1480,6 +1498,83 @@ def render():
             st.session_state.mp_active_nav = "Desk"
             st.rerun()
         return
+
+    if not p.get("game_over"):
+        vote_done = session_key in p.get("votes_by_session", {})
+        active_bill = _active_private_bill(p)
+        active_petition = p.get("petition_campaign")
+        petition_active = isinstance(active_petition, dict) and active_petition.get("status") == "active"
+
+        st.markdown("### Your session checklist")
+        st.caption("Use this as your guide for the current parliamentary session. A Commons vote is free; each career action uses one of your two slots.")
+        guide_cols = st.columns([1.05, 1.2, 1.05], gap="medium")
+        with guide_cols[0]:
+            with st.container(border=True):
+                st.markdown("**1 · Commons vote**")
+                if vote_done:
+                    st.success("Vote recorded")
+                    vote_record = p.get("votes_by_session", {}).get(session_key, {})
+                    st.caption(f"You voted {vote_record.get('vote', 'this session')}.")
+                else:
+                    st.warning("Still to cast")
+                    st.caption("Choose Aye, No or Abstain. This does not use a career action.")
+                    if st.button("Go to the vote", key=f"guide_vote_{session_key}", type="primary", use_container_width=True):
+                        _set_active_tab("Desk")
+                        st.rerun()
+
+        with guide_cols[1]:
+            with st.container(border=True):
+                st.markdown("**2 · Career actions**")
+                st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)} of {ACTIONS_PER_SESSION} used · {remaining} remaining")
+                if remaining:
+                    if active_bill:
+                        st.write(f"Suggested next step: **{html.escape(str(active_bill.get('label', 'your bill')))}**")
+                        target_tab, target_label = "Plans", "Continue your bill"
+                    elif petition_active:
+                        signatures = int(active_petition.get("signatures", 0))
+                        st.write(f"Suggested next step: **Constituency petition** · {signatures:,} signatures")
+                        target_tab, target_label = "Nation", "Continue petition"
+                    elif not petition_active:
+                        st.write("Choose local casework, policy work, press, or political networking.")
+                        target_tab, target_label = "Nation", "Find an action"
+                    if st.button(target_label, key=f"guide_action_{session_key}", use_container_width=True):
+                        _set_active_tab(target_tab)
+                        st.rerun()
+                    shortcut_cols = st.columns(3, gap="small")
+                    for shortcut_col, target, short_label in zip(
+                        shortcut_cols,
+                        ["Nation", "Plans", "Press"],
+                        ["Local", "Policy", "Press"],
+                    ):
+                        with shortcut_col:
+                            st.button(
+                                short_label,
+                                key=f"guide_shortcut_{session_key}_{target.lower()}",
+                                use_container_width=True,
+                                on_click=_set_active_tab,
+                                args=(target,),
+                            )
+                else:
+                    st.success("Action slots complete")
+                    st.caption("Cast your Commons vote, then move on to the next session.")
+
+        with guide_cols[2]:
+            with st.container(border=True):
+                st.markdown("**3 · Session progress**")
+                if remaining == 0 and vote_done:
+                    st.success("Ready for next session")
+                    st.caption("Your vote and both career actions are complete.")
+                    if st.button("Continue session →", key=f"guide_advance_{session_key}", type="primary", use_container_width=True):
+                        _advance(p)
+                elif remaining == 0 and not vote_done:
+                    st.warning("Vote still needed")
+                    st.caption("Complete your Commons vote before moving on.")
+                    if st.button("Finish Commons vote", key=f"guide_advance_vote_{session_key}", use_container_width=True):
+                        _set_active_tab("Desk")
+                        st.rerun()
+                else:
+                    st.info(f"{remaining} action{'s' if remaining != 1 else ''} left")
+                    st.caption("Actions are spent across all four sections, so choose the ones that fit your strategy.")
 
     if active_tab == "Desk":
         left, right = st.columns([2.15, 0.95], gap="large")
@@ -1947,15 +2042,10 @@ def render():
                 st.markdown(f"**{item['title']}** · Term {item['term']}, year {item['year']}, session {item['session']}")
                 st.caption(item["text"])
 
-    if len(used) >= ACTIONS_PER_SESSION:
-        st.divider()
-        st.warning("Your two career-action slots are used. You can still cast the current Commons vote, then continue to the next session.")
     if len(used) >= ACTIONS_PER_SESSION and not p.get("game_over"):
-        if st.button(
-            "End parliamentary session and continue",
-            key=f"advance_session_{p['career_term']}_{p['career_year']}_{p['career_session']}",
-            type="primary",
-            use_container_width=True,
-        ):
-            _advance(p)
+        st.divider()
+        if session_key in p.get("votes_by_session", {}):
+            st.success("All required session tasks are complete. Use “Continue session” in the checklist above.")
+        else:
+            st.warning("Your two career actions are complete, but your Commons vote is still outstanding. Cast it before continuing.")
     st.markdown("<div class='mp-footer-note'>Fictionalised UK parliamentary career simulator · Constituency boundaries use the July 2024 register · No live party whip or current-affairs claims</div>", unsafe_allow_html=True)
