@@ -20,6 +20,7 @@ This repository is independent of the UK Chancellor Simulator repository. The Ch
 ## How to play
 
 - Choose an MP name, UK parliamentary party, constituency, starting ambition and local campaign priority. The party list includes the main Great Britain parties, Northern Ireland parties and independents.
+- The dashboard uses four clear section buttons: Commons, Constituency, Plans & bills, and Press & party. A session checklist shows whether your Commons vote is outstanding, how many career-action slots remain, and when you can advance.
 - Each parliamentary session gives you **one featured Commons vote** and **two career actions**.
 - Three fictional constituent cases arrive in a session inbox. Investigating, raising an issue in Parliament, or coordinating local partners each uses one of your two career-action slots; matching your chosen local priority gives a small bonus.
 - **Phase 2 — Westminster politics:** respond to a fictional political news cycle; balance the party leadership, backbench colleagues, local party and cross-party relationships; build allies or rivals; manage parliamentary standards risk; and improve campaign readiness through constituency canvassing.
