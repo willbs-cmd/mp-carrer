@@ -180,14 +180,14 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
 [data-testid="stMetricLabel"] { color:#5d6876 !important; font-size:.8rem !important; font-weight:700 !important; }
 [data-testid="stMetricValue"] { color:#111820 !important; font-size:clamp(1.2rem,1.45vw,1.8rem) !important; font-weight:850 !important; letter-spacing:-.045em; }
 [data-testid="stMetricDelta"] { font-size:.75rem; }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(1) { border-top-color:var(--mp-red); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(2) { border-top-color:var(--mp-blue); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(3) { border-top-color:var(--mp-orange); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(4) { border-top-color:var(--mp-green); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(5) { border-top-color:var(--mp-teal); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(6) { border-top-color:var(--mp-purple); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(7) { border-top-color:var(--mp-gold); }
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"]:nth-child(8) { border-top-color:var(--mp-navy); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1) [data-testid="stMetric"] { border-top-color:var(--mp-red); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2) [data-testid="stMetric"] { border-top-color:var(--mp-blue); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3) [data-testid="stMetric"] { border-top-color:var(--mp-orange); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(4) [data-testid="stMetric"] { border-top-color:var(--mp-green); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(5) [data-testid="stMetric"] { border-top-color:var(--mp-teal); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(6) [data-testid="stMetric"] { border-top-color:var(--mp-purple); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(7) [data-testid="stMetric"] { border-top-color:var(--mp-gold); }
+[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(8) [data-testid="stMetric"] { border-top-color:var(--mp-navy); }
 
 /* White paper / card surfaces */
 [data-testid="stVerticalBlockBorderWrapper"] {
