@@ -42,3 +42,5 @@ Each parliamentary session offers one featured Commons division, separate from t
 ## Regression check
 
 Run `python sim.py check` after changing content. It checks content shape and non-finite effects, then runs a deterministic sample of games against broad per-party win and sacking thresholds. Use `python sim.py check 50 Hardcore` to sample more seeds. A failure means investigate the balance change; it does not automatically mean the content is wrong.
+
+Phase 3 adds fictional department portfolios and policy targets in `career.py`. A minister can select a portfolio and target (using an action slot), improve delivery through departmental actions, and earn a milestone bonus when target progress reaches 100%. The game also includes fictional Cabinet reshuffles, internal party leadership contests, annual Westminster school-report cards, and a final career report. These mechanics are deliberately simplified and are not intended to predict real appointments or election outcomes.
