@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification.",
+  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification. The game party selector also includes Your Party, Restore Britain and Traditional Unionist Voice, which appear in the UK Parliament's current state-of-parties list as of 26 October 2026.",
   "mandates": {
     "public_services": {
       "label": "Protect public services",
@@ -44,7 +44,10 @@
     "Alliance Party of Northern Ireland",
     "Social Democratic and Labour Party (SDLP)",
     "Ulster Unionist Party (UUP)",
-    "Independent"
+    "Independent",
+    "Your Party",
+    "Restore Britain",
+    "Traditional Unionist Voice (TUV)"
   ],
   "divisions": [
     {
