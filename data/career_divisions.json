@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game.",
+  "mandates": {
+    "public_services": {
+      "label": "Protect public services",
+      "description": "Prioritise health, education and local services."
+    },
+    "cost_living": {
+      "label": "Lower the cost of living",
+      "description": "Prioritise household bills, housing costs and benefit adequacy."
+    },
+    "climate_transport": {
+      "label": "Climate and transport",
+      "description": "Prioritise clean energy, public transport and long-term environmental goals."
+    },
+    "jobs_growth": {
+      "label": "Jobs, skills and growth",
+      "description": "Prioritise employment, training, business and regional investment."
+    },
+    "crime_public_safety": {
+      "label": "Crime and public safety",
+      "description": "Prioritise neighbourhood safety and effective public administration."
+    },
+    "tax_and_spending": {
+      "label": "Tax and responsible spending",
+      "description": "Prioritise fiscal credibility, tax fairness and long-run affordability."
+    },
+    "integrity": {
+      "label": "Integrity and accountability",
+      "description": "Prioritise transparency and ethical standards in public life."
+    }
+  },
+  "party_names": [
+    "Labour",
+    "Conservative",
+    "Liberal Democrats",
+    "Reform UK",
+    "Green Party",
+    "SNP",
+    "Plaid Cymru"
+  ],
+  "divisions": [
+    {
+      "id": "nhs_capital",
+      "title": "NHS estate and equipment fund",
+      "priority": "public_services",
+      "local_preference": "Aye",
+      "description": "The bill would fund hospital buildings, scanners and repairs, but would increase planned public borrowing. The simplified constituency pulse favours support.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "school_meals",
+      "title": "Expand free school meals",
+      "priority": "public_services",
+      "local_preference": "Aye",
+      "description": "The bill expands eligibility for free school meals and funds local delivery. The cost must be met through borrowing or savings elsewhere.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "service_efficiencies",
+      "title": "Departmental efficiency package",
+      "priority": "public_services",
+      "local_preference": "No",
+      "description": "The bill requires departments to identify savings through mergers, procurement changes and reduced administrative budgets. Critics warn that some frontline services could be affected.",
+      "whip": {
+        "Labour": "No",
+        "Conservative": "Aye",
+        "Liberal Democrats": "No",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "No",
+        "Plaid Cymru": "No"
+      }
+    },
+    {
+      "id": "rent_protection",
+      "title": "Strengthen private-renter protections",
+      "priority": "cost_living",
+      "local_preference": "Aye",
+      "description": "The bill strengthens notice and repair rules for tenants. Landlords argue that some obligations could raise costs or reduce supply.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "energy_support",
+      "title": "Energy-bill support funded by a windfall levy",
+      "priority": "cost_living",
+      "local_preference": "Aye",
+      "description": "The package provides temporary help with energy bills, funded by a levy on exceptional energy-sector profits.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "benefit_uprating",
+      "title": "Uprate working-age benefits with inflation",
+      "priority": "cost_living",
+      "local_preference": "Aye",
+      "description": "The bill protects benefit purchasing power during price rises, while adding recurring pressure to public spending.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "bus_network",
+      "title": "Restore rural and suburban bus funding",
+      "priority": "climate_transport",
+      "local_preference": "Aye",
+      "description": "The bill restores grants for local bus services, especially outside major city centres.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "road_programme",
+      "title": "Fast-track a major road-building programme",
+      "priority": "climate_transport",
+      "local_preference": "No",
+      "description": "The bill funds new road capacity to reduce congestion. Critics argue it could lock in car dependency and crowd out rail and bus investment.",
+      "whip": {
+        "Labour": "No",
+        "Conservative": "Aye",
+        "Liberal Democrats": "No",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "No",
+        "Plaid Cymru": "No"
+      }
+    },
+    {
+      "id": "renewables",
+      "title": "Accelerate renewable electricity connections",
+      "priority": "climate_transport",
+      "local_preference": "Aye",
+      "description": "The bill speeds up grid connections for renewable projects and funds local network upgrades.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "business_rates",
+      "title": "Temporary business-rates relief for high streets",
+      "priority": "jobs_growth",
+      "local_preference": "Aye",
+      "description": "The bill gives eligible high-street businesses temporary business-rates relief, with the cost falling on the Exchequer.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "apprenticeships",
+      "title": "National apprenticeships and skills guarantee",
+      "priority": "jobs_growth",
+      "local_preference": "Aye",
+      "description": "The bill funds apprenticeships and retraining with employers asked to co-invest in delivery.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "regional_investment",
+      "title": "Create a regional growth and town-centre fund",
+      "priority": "jobs_growth",
+      "local_preference": "Aye",
+      "description": "The bill funds local transport links, derelict-site regeneration and small-business support outside the largest cities.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "police_funding",
+      "title": "Increase neighbourhood policing grants",
+      "priority": "crime_public_safety",
+      "local_preference": "Aye",
+      "description": "The bill funds additional neighbourhood officers and local problem-solving teams. Ministers must explain how the recurring costs will be covered.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "border_processing",
+      "title": "Speed up asylum decisions and appeals",
+      "priority": "crime_public_safety",
+      "local_preference": "Aye",
+      "description": "The bill adds caseworkers, sets tighter decision timetables and changes appeal processes. Supporters emphasise faster decisions; critics warn about safeguards and legal errors.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "No",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "No",
+        "Plaid Cymru": "No"
+      }
+    },
+    {
+      "id": "carbon_levy",
+      "title": "Raise the carbon levy on high-emission activity",
+      "priority": "climate_transport",
+      "local_preference": "Aye",
+      "description": "The bill increases the price signal on high-emission activity and recycles some receipts into insulation. Some energy-intensive businesses warn about costs.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "No",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "fiscal_rule",
+      "title": "Require major spending bills to publish an offset plan",
+      "priority": "tax_and_spending",
+      "local_preference": "Aye",
+      "description": "The bill requires government to publish a credible funding plan alongside major new spending commitments.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "pension_freeze",
+      "title": "Temporarily restrain the state-pension uprating formula",
+      "priority": "tax_and_spending",
+      "local_preference": "No",
+      "description": "The bill slows pension increases to reduce long-run spending, which would lower the real-terms support some pensioners receive.",
+      "whip": {
+        "Labour": "No",
+        "Conservative": "Aye",
+        "Liberal Democrats": "No",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "No",
+        "Plaid Cymru": "No"
+      }
+    },
+    {
+      "id": "defence_spending",
+      "title": "Raise the defence-spending commitment",
+      "priority": "tax_and_spending",
+      "local_preference": "No",
+      "description": "The bill commits to a higher defence-spending path over several years, increasing pressure on the spending review unless taxes rise or other budgets fall.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "No",
+        "SNP": "Aye",
+        "Plaid Cymru": "No"
+      }
+    },
+    {
+      "id": "transparency",
+      "title": "Publish a searchable register of ministerial interests",
+      "priority": "integrity",
+      "local_preference": "Aye",
+      "description": "The bill expands public reporting of ministerial interests, gifts and meetings. It carries a small administrative cost and aims to improve trust.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "Aye",
+        "Liberal Democrats": "Aye",
+        "Reform UK": "Aye",
+        "Green Party": "Aye",
+        "SNP": "Aye",
+        "Plaid Cymru": "Aye"
+      }
+    },
+    {
+      "id": "assisted_dying",
+      "title": "Assisted-dying legislation",
+      "priority": null,
+      "local_preference": "Free vote",
+      "description": "A conscience issue with ethical and legal implications. The game treats this as a free vote for all parties; members decide individually.",
+      "whip": {
+        "Labour": "Free vote",
+        "Conservative": "Free vote",
+        "Liberal Democrats": "Free vote",
+        "Reform UK": "Free vote",
+        "Green Party": "Free vote",
+        "SNP": "Free vote",
+        "Plaid Cymru": "Free vote"
+      }
+    }
+  ]
+}
