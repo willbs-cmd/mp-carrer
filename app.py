@@ -8,7 +8,7 @@ import streamlit as st
 import career
 
 st.set_page_config(
-    page_title="Westminster · MP Career",
+    page_title="Westminster · UK MP Career",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -144,26 +144,26 @@ if st.session_state.get("step") == "setup" or not isinstance(profile, dict):
         """
         <div class="mp-hero">
           <div class="kicker">Westminster · Political Career Simulator</div>
-          <h1>🏛️ Your Career in Parliament</h1>
-          <p>Start as a backbench MP, represent a real constituency, vote in Commons divisions and build a path towards ministerial office.</p>
+          <h1>🏛️ Your Westminster Career</h1>
+          <p>Start as a backbench MP in England, Scotland, Wales or Northern Ireland. Navigate Commons votes, PMQs, Select Committees, party factions, the Westminster press and the next general election.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.markdown("## Create your MP")
-    st.caption("This is a standalone game, separate from the Chancellor's Office simulator. Constituency names and codes use the official July 2024 Westminster constituency list; your character is fictional and is not asserted to be the current MP for that seat.")
+    st.caption("This is a UK Westminster political simulation, separate from the Chancellor's Office simulator. Constituency names and codes use the July 2024 Westminster boundary list. Your MP and all Phase 2 headlines, colleagues, divisions and whip positions are fictional game content, not live political news or claims about current MPs.")
 
     with st.form("mp_career_start_form"):
         name = st.text_input("Your MP's name", value="Alex Morgan", max_chars=70)
         c1, c2 = st.columns(2, gap="medium")
         with c1:
-            party = st.selectbox("Party", career.DIVISION_DATA["party_names"], index=0)
+            party = st.selectbox("UK parliamentary party", career.DIVISION_DATA["party_names"], index=0, help="Includes parties from across the UK and independent MPs. Northern Ireland parties and independents default to free votes in this simplified fictional model.")
             constituency = st.selectbox(
                 "Real Westminster constituency",
                 career.CONSTITUENCY_NAMES,
                 index=career.CONSTITUENCY_NAMES.index("Droitwich and Evesham") if "Droitwich and Evesham" in career.CONSTITUENCY_NAMES else 0,
                 format_func=lambda value: f"{value} · {career.CONSTITUENCY_BY_NAME[value]['nation']}",
-                help="Search the list by typing a constituency name. The list contains all 650 constituencies in the July 2024 boundary edition.",
+                help="Search the list by typing a constituency name. The list contains all 650 constituencies in the July 2024 boundary edition, covering England, Scotland, Wales and Northern Ireland.",
             )
         with c2:
             ambition = st.selectbox(
