@@ -1,0 +1,655 @@
+{
+  "schema_version": 1,
+  "description": "Career-mode roles and actions. Attribute effects are bounded by 0 and 100. Thresholds are game rules, not a statement of official UK appointment procedures.",
+  "attributes": {
+    "constituency_support": "Constituency support",
+    "party_trust": "Party trust",
+    "parliamentary_influence": "Parliamentary influence",
+    "public_profile": "Public profile",
+    "policy_expertise": "Policy expertise",
+    "integrity": "Integrity"
+  },
+  "ambitions": {
+    "policy_specialist": {
+      "label": "Policy specialist",
+      "description": "Build expertise and parliamentary influence.",
+      "effects": {
+        "policy_expertise": 10,
+        "parliamentary_influence": 3
+      }
+    },
+    "party_loyalist": {
+      "label": "Party loyalist",
+      "description": "Earn trust by being reliable and helping the party deliver.",
+      "effects": {
+        "party_trust": 10,
+        "parliamentary_influence": 3
+      }
+    },
+    "campaigner": {
+      "label": "Constituency campaigner",
+      "description": "Focus on local service, public recognition and your seat.",
+      "effects": {
+        "constituency_support": 8,
+        "public_profile": 5
+      }
+    },
+    "rebel": {
+      "label": "Independent-minded rebel",
+      "description": "Build a profile by challenging the party line, at a cost to party trust.",
+      "effects": {
+        "public_profile": 8,
+        "policy_expertise": 4,
+        "party_trust": -6
+      }
+    }
+  },
+  "roles": {
+    "mp": {
+      "label": "Backbench MP",
+      "rank": 0,
+      "description": "Represent your constituency, scrutinise the government, make speeches and build a record in Parliament.",
+      "next": [
+        "pps",
+        "committee_chair"
+      ],
+      "actions": [
+        {
+          "id": "casework",
+          "label": "Hold a constituency surgery",
+          "description": "Meet residents and resolve local casework. Reliable constituency service builds trust over time.",
+          "effects": {
+            "constituency_support": 6,
+            "integrity": 2,
+            "policy_expertise": 1
+          }
+        },
+        {
+          "id": "question",
+          "label": "Ask a probing parliamentary question",
+          "description": "Put a minister under scrutiny and develop a reputation for understanding policy.",
+          "effects": {
+            "parliamentary_influence": 5,
+            "policy_expertise": 4,
+            "public_profile": 2,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "campaign",
+          "label": "Run a local campaign",
+          "description": "Organise volunteers around an issue important to your seat.",
+          "effects": {
+            "constituency_support": 3,
+            "public_profile": 5,
+            "party_trust": 1
+          }
+        },
+        {
+          "id": "committee",
+          "label": "Prepare evidence for a committee",
+          "description": "Study a policy area and build relationships with other MPs.",
+          "effects": {
+            "policy_expertise": 5,
+            "parliamentary_influence": 3,
+            "integrity": 1
+          }
+        },
+        {
+          "id": "media",
+          "label": "Give a media interview",
+          "description": "Raise your public profile, but your words may annoy party colleagues.",
+          "effects": {
+            "public_profile": 6,
+            "parliamentary_influence": 1,
+            "party_trust": -2
+          }
+        },
+        {
+          "id": "rebel",
+          "label": "Defy the party whip",
+          "description": "Vote against the party on a matter of principle. Some voters approve, but promotion becomes harder.",
+          "effects": {
+            "public_profile": 5,
+            "integrity": 2,
+            "party_trust": -7,
+            "parliamentary_influence": 2
+          }
+        },
+        {
+          "id": "pmq",
+          "label": "Press a minister at Question Time",
+          "description": "Prepare a focused oral question and follow up when the minister's answer is vague. Good scrutiny builds influence, but government colleagues may resent repeated attacks.",
+          "effects": {
+            "parliamentary_influence": 4,
+            "policy_expertise": 3,
+            "public_profile": 3,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "bill",
+          "label": "Sponsor a Private Member's Bill",
+          "description": "Draft a small legislative proposal and seek cross-party backing. It can raise your profile even if it does not become law; the action is not a guarantee of passage.",
+          "effects": {
+            "policy_expertise": 5,
+            "parliamentary_influence": 4,
+            "public_profile": 4,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "appg",
+          "label": "Join a cross-party policy group",
+          "description": "Work with MPs from other parties on a focused issue, building expertise and relationships outside your own party.",
+          "effects": {
+            "policy_expertise": 4,
+            "parliamentary_influence": 3,
+            "integrity": 1
+          }
+        },
+        {
+          "id": "letter",
+          "label": "Write to a minister about a constituency problem",
+          "description": "Use a constituent's case to press the relevant department for action. It is less visible than a media campaign but can demonstrate practical representation.",
+          "effects": {
+            "constituency_support": 4,
+            "integrity": 2,
+            "parliamentary_influence": 1
+          }
+        }
+      ]
+    },
+    "pps": {
+      "label": "Parliamentary Private Secretary",
+      "rank": 1,
+      "description": "Act as a link between a minister and MPs, listen to backbench concerns and help understand parliamentary arithmetic. This is a junior political appointment, not a ministerial office.",
+      "next": [
+        "junior_minister"
+      ],
+      "actions": [
+        {
+          "id": "brief",
+          "label": "Brief the minister on backbench concerns",
+          "description": "Give the minister early warning of dissatisfaction and suggest a compromise.",
+          "effects": {
+            "party_trust": 4,
+            "parliamentary_influence": 4,
+            "policy_expertise": 2
+          }
+        },
+        {
+          "id": "votes",
+          "label": "Organise support for a government bill",
+          "description": "Check how colleagues intend to vote and relay concerns to the whips.",
+          "effects": {
+            "party_trust": 5,
+            "parliamentary_influence": 5,
+            "public_profile": -1
+          }
+        },
+        {
+          "id": "memo",
+          "label": "Draft a practical policy memo",
+          "description": "Turn a minister's broad idea into a concise set of options.",
+          "effects": {
+            "policy_expertise": 5,
+            "parliamentary_influence": 2,
+            "integrity": 1
+          }
+        },
+        {
+          "id": "constituents",
+          "label": "Protect time for constituency work",
+          "description": "Show that a Westminster appointment has not made you forget your local responsibilities.",
+          "effects": {
+            "constituency_support": 4,
+            "integrity": 2,
+            "party_trust": 1
+          }
+        }
+      ]
+    },
+    "committee_chair": {
+      "label": "Select Committee Chair",
+      "rank": 1,
+      "description": "Lead evidence sessions and scrutinise departmental decisions. A report can shape debate, but ministers do not automatically have to accept it.",
+      "next": [
+        "junior_minister"
+      ],
+      "actions": [
+        {
+          "id": "inquiry",
+          "label": "Launch a major inquiry",
+          "description": "Focus the committee on a policy failure or a long-term challenge.",
+          "effects": {
+            "policy_expertise": 5,
+            "parliamentary_influence": 5,
+            "public_profile": 2,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "witnesses",
+          "label": "Call senior witnesses",
+          "description": "Gather evidence from officials, experts and affected groups.",
+          "effects": {
+            "policy_expertise": 4,
+            "integrity": 3,
+            "parliamentary_influence": 3
+          }
+        },
+        {
+          "id": "report",
+          "label": "Publish a cross-party report",
+          "description": "Build consensus around practical recommendations.",
+          "effects": {
+            "parliamentary_influence": 5,
+            "public_profile": 3,
+            "policy_expertise": 3,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "challenge",
+          "label": "Confront a minister over poor delivery",
+          "description": "Demand answers publicly. It may raise your profile but close doors in government.",
+          "effects": {
+            "public_profile": 5,
+            "integrity": 2,
+            "party_trust": -4,
+            "parliamentary_influence": 3
+          }
+        }
+      ]
+    },
+    "junior_minister": {
+      "label": "Parliamentary Under-Secretary of State",
+      "rank": 2,
+      "description": "Take responsibility for a defined policy area, answer questions and help turn the department's plans into delivery.",
+      "next": [
+        "minister_of_state"
+      ],
+      "actions": [
+        {
+          "id": "delivery",
+          "label": "Set a departmental delivery plan",
+          "description": "Agree a small number of measurable goals with officials.",
+          "effects": {
+            "policy_expertise": 4,
+            "party_trust": 3,
+            "constituency_support": 1,
+            "public_profile": 2
+          }
+        },
+        {
+          "id": "stakeholders",
+          "label": "Meet frontline workers and stakeholders",
+          "description": "Hear what is working and what is failing before changing policy.",
+          "effects": {
+            "policy_expertise": 3,
+            "integrity": 3,
+            "constituency_support": 2
+          }
+        },
+        {
+          "id": "questions",
+          "label": "Prepare for parliamentary questions",
+          "description": "Answer difficult questions accurately and avoid an avoidable political row.",
+          "effects": {
+            "parliamentary_influence": 3,
+            "party_trust": 2,
+            "public_profile": 2
+          }
+        },
+        {
+          "id": "crisis",
+          "label": "Take ownership of a delivery problem",
+          "description": "Fix the issue rather than blaming officials. It costs political capital but builds credibility.",
+          "effects": {
+            "integrity": 4,
+            "policy_expertise": 3,
+            "party_trust": 1,
+            "public_profile": 1
+          }
+        }
+      ]
+    },
+    "minister_of_state": {
+      "label": "Minister of State",
+      "rank": 3,
+      "description": "Lead a substantial part of a department, negotiate with colleagues and show that policies are producing results.",
+      "next": [
+        "secretary_state"
+      ],
+      "actions": [
+        {
+          "id": "rollout",
+          "label": "Roll out a flagship programme",
+          "description": "Deliver a visible policy improvement, while accepting responsibility for the outcome.",
+          "effects": {
+            "constituency_support": 3,
+            "policy_expertise": 4,
+            "public_profile": 3,
+            "party_trust": 1
+          }
+        },
+        {
+          "id": "treasury",
+          "label": "Negotiate with the Treasury",
+          "description": "Make the case for funding while showing how the programme will be paid for.",
+          "effects": {
+            "parliamentary_influence": 4,
+            "party_trust": 3,
+            "policy_expertise": 2
+          }
+        },
+        {
+          "id": "defend",
+          "label": "Defend the policy in the Commons",
+          "description": "Answer criticism and explain the trade-offs honestly.",
+          "effects": {
+            "parliamentary_influence": 4,
+            "public_profile": 3,
+            "integrity": 2
+          }
+        },
+        {
+          "id": "officials",
+          "label": "Resolve a department-officials dispute",
+          "description": "Find a workable settlement instead of allowing delivery to stall.",
+          "effects": {
+            "policy_expertise": 3,
+            "integrity": 2,
+            "party_trust": 3
+          }
+        }
+      ]
+    },
+    "secretary_state": {
+      "label": "Secretary of State",
+      "rank": 4,
+      "description": "Lead an entire department, set priorities, negotiate its budget and defend its performance in Parliament and the media.",
+      "next": [
+        "chancellor",
+        "prime_minister"
+      ],
+      "actions": [
+        {
+          "id": "reform",
+          "label": "Drive a major departmental reform",
+          "description": "Spend political capital on a long-term change that could become your signature achievement.",
+          "effects": {
+            "policy_expertise": 5,
+            "constituency_support": 3,
+            "public_profile": 4,
+            "party_trust": -1
+          }
+        },
+        {
+          "id": "cabinet",
+          "label": "Broker a Cabinet agreement",
+          "description": "Secure support from other departments for a shared priority.",
+          "effects": {
+            "party_trust": 4,
+            "parliamentary_influence": 4,
+            "policy_expertise": 1
+          }
+        },
+        {
+          "id": "crisis",
+          "label": "Lead a departmental crisis response",
+          "description": "Show judgement under pressure. A good response builds integrity; a poor one will be remembered.",
+          "effects": {
+            "integrity": 4,
+            "policy_expertise": 3,
+            "public_profile": 2
+          }
+        },
+        {
+          "id": "budget",
+          "label": "Make a case for the next spending review",
+          "description": "Trade lower-priority demands for funding that will actually improve delivery.",
+          "effects": {
+            "parliamentary_influence": 4,
+            "party_trust": 2,
+            "policy_expertise": 3
+          }
+        }
+      ]
+    },
+    "chancellor": {
+      "label": "Chancellor of the Exchequer",
+      "rank": 5,
+      "description": "Set fiscal strategy, negotiate departmental settlements and balance growth, public services, debt and market confidence.",
+      "next": [
+        "prime_minister"
+      ],
+      "actions": [
+        {
+          "id": "budget",
+          "label": "Prepare a credible Budget",
+          "description": "Build a fiscally coherent package and explain its trade-offs to Parliament.",
+          "effects": {
+            "policy_expertise": 5,
+            "party_trust": 3,
+            "parliamentary_influence": 3,
+            "public_profile": 2
+          }
+        },
+        {
+          "id": "markets",
+          "label": "Meet investors and the OBR",
+          "description": "Explain the fiscal plan, acknowledge risks and avoid promising impossible savings.",
+          "effects": {
+            "integrity": 3,
+            "policy_expertise": 3,
+            "parliamentary_influence": 2,
+            "party_trust": 1
+          }
+        },
+        {
+          "id": "growth",
+          "label": "Back a long-term growth plan",
+          "description": "Prioritise skills, investment and productivity rather than a short-lived headline.",
+          "effects": {
+            "policy_expertise": 4,
+            "public_profile": 3,
+            "constituency_support": 2,
+            "party_trust": 1
+          }
+        },
+        {
+          "id": "cabinet",
+          "label": "Negotiate a tough departmental settlement",
+          "description": "Protect the fiscal rules but risk tension with Cabinet colleagues.",
+          "effects": {
+            "party_trust": 3,
+            "parliamentary_influence": 3,
+            "integrity": 2,
+            "constituency_support": -1
+          }
+        }
+      ]
+    },
+    "prime_minister": {
+      "label": "Prime Minister",
+      "rank": 6,
+      "description": "Set the national agenda, chair Cabinet, handle crises, hold your party together and remain able to command the confidence of the House of Commons.",
+      "next": [],
+      "actions": [
+        {
+          "id": "cabinet",
+          "label": "Reshape the Cabinet",
+          "description": "Reward delivery, resolve a dispute or remove a minister who has lost your confidence.",
+          "effects": {
+            "party_trust": 4,
+            "parliamentary_influence": 4,
+            "public_profile": 2
+          }
+        },
+        {
+          "id": "pmqs",
+          "label": "Prepare for Prime Minister's Questions",
+          "description": "Anticipate the opposition's attack and offer a defensible answer.",
+          "effects": {
+            "parliamentary_influence": 4,
+            "public_profile": 3,
+            "policy_expertise": 1
+          }
+        },
+        {
+          "id": "crisis",
+          "label": "Chair a national crisis meeting",
+          "description": "Coordinate departments, communicate clearly and accept accountability.",
+          "effects": {
+            "integrity": 4,
+            "policy_expertise": 2,
+            "public_profile": 2,
+            "party_trust": 1
+          }
+        },
+        {
+          "id": "election",
+          "label": "Launch a constituency and national campaign",
+          "description": "Rebuild confidence in your leadership and connect national promises to voters' lives.",
+          "effects": {
+            "constituency_support": 3,
+            "public_profile": 5,
+            "party_trust": 2
+          }
+        }
+      ]
+    }
+  },
+  "promotion_rules": {
+    "mp": {
+      "pps": {
+        "min_years": 1,
+        "requirements": {
+          "party_trust": 50,
+          "parliamentary_influence": 26
+        },
+        "bonus": {
+          "party_trust": 2,
+          "parliamentary_influence": 2
+        }
+      },
+      "committee_chair": {
+        "min_years": 1,
+        "requirements": {
+          "constituency_support": 53,
+          "policy_expertise": 38,
+          "parliamentary_influence": 34
+        },
+        "bonus": {
+          "policy_expertise": 2,
+          "integrity": 2
+        }
+      }
+    },
+    "pps": {
+      "junior_minister": {
+        "min_years": 2,
+        "requirements": {
+          "party_trust": 57,
+          "parliamentary_influence": 40,
+          "policy_expertise": 38
+        },
+        "bonus": {
+          "party_trust": 2,
+          "public_profile": 2
+        }
+      }
+    },
+    "committee_chair": {
+      "junior_minister": {
+        "min_years": 2,
+        "requirements": {
+          "party_trust": 48,
+          "parliamentary_influence": 45,
+          "policy_expertise": 52
+        },
+        "bonus": {
+          "party_trust": 2,
+          "public_profile": 2
+        }
+      }
+    },
+    "junior_minister": {
+      "minister_of_state": {
+        "min_years": 3,
+        "requirements": {
+          "party_trust": 60,
+          "policy_expertise": 54,
+          "public_profile": 38
+        },
+        "bonus": {
+          "party_trust": 2,
+          "parliamentary_influence": 2
+        }
+      }
+    },
+    "minister_of_state": {
+      "secretary_state": {
+        "min_years": 4,
+        "requirements": {
+          "party_trust": 64,
+          "policy_expertise": 60,
+          "parliamentary_influence": 58
+        },
+        "bonus": {
+          "public_profile": 3,
+          "party_trust": 2
+        }
+      }
+    },
+    "secretary_state": {
+      "chancellor": {
+        "min_years": 4,
+        "requirements": {
+          "party_trust": 68,
+          "policy_expertise": 68,
+          "parliamentary_influence": 64
+        },
+        "bonus": {
+          "policy_expertise": 2,
+          "public_profile": 2
+        }
+      },
+      "prime_minister": {
+        "min_years": 5,
+        "requirements": {
+          "party_trust": 75,
+          "public_profile": 68,
+          "parliamentary_influence": 68,
+          "integrity": 55
+        },
+        "bonus": {
+          "party_trust": 2,
+          "public_profile": 3
+        }
+      }
+    },
+    "chancellor": {
+      "prime_minister": {
+        "min_years": 5,
+        "requirements": {
+          "party_trust": 74,
+          "public_profile": 65,
+          "parliamentary_influence": 67,
+          "integrity": 55
+        },
+        "bonus": {
+          "party_trust": 2,
+          "public_profile": 3
+        }
+      }
+    }
+  },
+  "session_policy": {
+    "sessions_per_year": 3,
+    "actions_per_session": 2,
+    "election_after_years": 5
+  }
+}
