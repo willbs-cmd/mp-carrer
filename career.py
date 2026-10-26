@@ -22,6 +22,18 @@ MANDATES = DIVISION_DATA["mandates"]
 VOTE_OPTIONS = ("Aye", "No", "Abstain")
 
 
+# Abstract game-only party bloc weights (not current Commons seat counts).
+SIMULATED_PARTY_WEIGHTS = {
+    "Labour": 40,
+    "Conservative": 24,
+    "Liberal Democrats": 13,
+    "Reform UK": 8,
+    "Green Party": 5,
+    "SNP": 6,
+    "Plaid Cymru": 4,
+}
+
+
 INBOX_CASES = [
     {
         "id": "gp_access", "priority": "public_services",
@@ -224,6 +236,39 @@ def _division_for(p):
     return DIVISION_BY_ID[division_id]
 
 
+def _simulate_division_result(p, division, choice):
+    """Estimate a fictional vote tally using game-only party weights."""
+    ayes = 0
+    noes = 0
+    abstentions = 0
+    player_party = p.get("party", "Labour")
+    for party, weight in SIMULATED_PARTY_WEIGHTS.items():
+        whip = division.get("whip", {}).get(party, "Free vote")
+        bloc_weight = max(0, int(weight) - (1 if party == player_party else 0))
+        if whip == "Aye":
+            ayes += bloc_weight
+        elif whip == "No":
+            noes += bloc_weight
+        else:
+            # A free-vote bloc is split approximately evenly in the simplified model.
+            ayes += bloc_weight // 2
+            noes += bloc_weight - (bloc_weight // 2)
+    if choice == "Aye":
+        ayes += 1
+    elif choice == "No":
+        noes += 1
+    else:
+        abstentions += 1
+    result = "Passed" if ayes > noes else "Rejected"
+    return {
+        "ayes": int(ayes),
+        "noes": int(noes),
+        "abstentions": int(abstentions),
+        "result": result,
+        "majority": int(abs(ayes - noes)),
+    }
+
+
 def _cast_vote(p, choice):
     """Record a Commons vote once per session, independently from career action slots."""
     if choice not in VOTE_OPTIONS:
@@ -235,6 +280,7 @@ def _cast_vote(p, choice):
 
     division = _division_for(p)
     whip = division.get("whip", {}).get(p.get("party", "Labour"), "Free vote")
+    division_result = _simulate_division_result(p, division, choice)
     effects = {}
     def add(stat, amount):
         effects[stat] = effects.get(stat, 0) + amount
@@ -279,6 +325,7 @@ def _cast_vote(p, choice):
         "party": p.get("party", "Labour"),
         "party_whip": whip,
         "followed_whip": (whip == "Free vote" or choice == whip),
+        "division_result": division_result,
         "local_priority": p.get("local_mandate"),
         "constituency_effect": "Aligned with local priority" if mandate_match and choice == local_preference else ("Conflicted with local priority" if mandate_match and choice in ("Aye", "No") else "No direct local-priority effect"),
         "effects": effects,
@@ -544,9 +591,12 @@ def render():
         whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
         st.markdown(whip_label)
         st.caption(f"Your selected local priority: {MANDATES[p['local_mandate']]['label']}. Matching that priority can increase constituency support when the bill concerns it.")
-        st.caption("The bill and party whip are fictionalised game content, not a record of a real historic division or an assertion of a party's current official position.")
+        st.caption("The bill, party whip and simplified vote tally are fictionalised game content. Tally points use abstract game-only party weights; they are not real seat counts, a historical division or current official party positions.")
         if saved_vote:
             st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
+            result = saved_vote.get("division_result")
+            if result:
+                st.info(f"Simulated division result: **{result['result']}** · Ayes {result['ayes']} – Noes {result['noes']} · Majority {result['majority']} game points.")
             if saved_vote.get("effects_summary"):
                 st.caption(f"Career effects: {saved_vote['effects_summary']}.")
             st.caption("You can vote on the next division when the next parliamentary session begins.")
