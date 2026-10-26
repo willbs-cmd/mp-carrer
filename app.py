@@ -123,8 +123,10 @@ with st.sidebar:
                 raise ValueError("The save contains an unknown political role.")
             if candidate.get("constituency") not in career.CONSTITUENCY_BY_NAME:
                 raise ValueError("The save does not contain a recognised 2024 Westminster constituency.")
-            if not isinstance(candidate.get("stats"), dict) or not set(career.ATTRIBUTES).issubset(candidate["stats"]):
+            required_stats = set(career.ATTRIBUTES) - {"campaign_readiness"}
+            if not isinstance(candidate.get("stats"), dict) or not required_stats.issubset(candidate["stats"]):
                 raise ValueError("The save is missing required career attributes.")
+            candidate["stats"].setdefault("campaign_readiness", 30)
             st.session_state.career_profile = candidate
             st.session_state.seed = int(parsed.get("seed", 32458))
             st.session_state.party = candidate.get("party", parsed.get("party", "Labour"))
