@@ -247,6 +247,62 @@ CABINET_RESHUFFLE_OPTIONS = {
     "remove_rival": {"label": "Move a rival out of the inner circle", "description": "Tighten control of the Cabinet, but risk resentment among colleagues.", "effects": {"party_trust": -2, "parliamentary_influence": 3, "public_profile": 2}, "factions": {"party_leadership": 4, "backbenchers": -5}},
 }
 
+PRIVATE_MEMBERS_BILLS = {
+    "gp_access": {
+        "label": "GP Access and Appointment Standards Bill",
+        "description": "A fictional proposal to improve GP appointment access and publish local access standards.",
+        "priority": "public_services",
+        "policy_area": "Health and social care",
+    },
+    "renters_repair": {
+        "label": "Renters' Repairs and Healthy Homes Bill",
+        "description": "A fictional proposal to strengthen repair response times and reporting on serious housing hazards.",
+        "priority": "cost_living",
+        "policy_area": "Housing",
+    },
+    "bus_connectivity": {
+        "label": "Local Bus Connectivity Bill",
+        "description": "A fictional proposal to improve local bus information and protect links to essential services.",
+        "priority": "climate_transport",
+        "policy_area": "Transport",
+    },
+    "skills_guarantee": {
+        "label": "Apprenticeships and Skills Guarantee Bill",
+        "description": "A fictional proposal to expand employer-backed apprenticeships and practical training routes.",
+        "priority": "jobs_growth",
+        "policy_area": "Education and employment",
+    },
+    "contract_transparency": {
+        "label": "Public Contracts Transparency Bill",
+        "description": "A fictional proposal to make public contract awards and performance reporting easier to scrutinise.",
+        "priority": "integrity",
+        "policy_area": "Public accountability",
+    },
+    "flood_resilience": {
+        "label": "Community Flood Resilience Bill",
+        "description": "A fictional proposal to improve local flood preparation plans and public reporting on resilience work.",
+        "priority": "climate_transport",
+        "policy_area": "Environment and local resilience",
+    },
+}
+
+PRIVATE_BILL_STAGES = {
+    "drafting": "Draft and build sponsors",
+    "committee": "Committee stage",
+    "report": "Report stage",
+    "assented": "Royal Assent — Bill becomes law",
+    "defeated": "Bill did not pass",
+}
+
+PETITION_TOPICS = {
+    "nhs_access": {"label": "Improve local NHS access", "priority": "public_services", "description": "Ask ministers to improve access to GP appointments and local health services."},
+    "housing_repairs": {"label": "Act on poor housing conditions", "priority": "cost_living", "description": "Call for quicker action on serious disrepair and healthier rented homes."},
+    "bus_routes": {"label": "Protect local bus routes", "priority": "climate_transport", "description": "Ask for a reliable transport link to colleges, work, shops and appointments."},
+    "youth_opportunities": {"label": "Expand youth skills and apprenticeships", "priority": "jobs_growth", "description": "Call for more local training, apprenticeships and routes into good jobs."},
+    "neighbourhood_safety": {"label": "Improve neighbourhood safety", "priority": "crime_public_safety", "description": "Call for better coordination on local safety concerns and public-space problems."},
+    "public_spending": {"label": "Make public spending more transparent", "priority": "integrity", "description": "Ask public bodies to explain major spending decisions and publish clearer progress reports."},
+}
+
 
 def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
                 ambition="policy_specialist", local_mandate="public_services", party="Labour"):
@@ -314,6 +370,10 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "reshuffle_log": [],
         "completed_targets": [],
         "cabinet_exclusions": [],
+        "private_members_bill": None,
+        "private_bill_history": [],
+        "petition_campaign": None,
+        "petition_history": [],
     }
 
 
@@ -367,6 +427,10 @@ def _profile():
     p.setdefault("reshuffle_log", [])
     p.setdefault("completed_targets", [])
     p.setdefault("cabinet_exclusions", [])
+    p.setdefault("private_members_bill", None)
+    p.setdefault("private_bill_history", [])
+    p.setdefault("petition_campaign", None)
+    p.setdefault("petition_history", [])
     if p.get("role") in GOVERNMENT_ROLES:
         if p.get("portfolio_id") not in PORTFOLIOS:
             stable_mix = sum((i + 1) * ord(ch) for i, ch in enumerate(p.get("name", "MP")))
@@ -689,6 +753,232 @@ def _resolve_network_action(p, action):
         ally=action.get("ally"),
         rival=action.get("rival"),
     )
+
+
+def _active_private_bill(p):
+    bill = p.get("private_members_bill")
+    if not isinstance(bill, dict) or bill.get("stage") in {"assented", "defeated"}:
+        return None
+    return bill
+
+
+def _draft_private_members_bill(p, bill_id):
+    used = _current_actions(p)
+    if len(used) >= ACTIONS_PER_SESSION or "draft_private_bill" in used or _active_private_bill(p):
+        return
+    spec = PRIVATE_MEMBERS_BILLS.get(bill_id)
+    if not spec:
+        return
+    p["private_members_bill"] = {
+        "id": bill_id,
+        "label": spec["label"],
+        "description": spec["description"],
+        "priority": spec["priority"],
+        "policy_area": spec["policy_area"],
+        "stage": "drafting",
+        "sponsors": 0,
+        "evidence": 0,
+        "created_term": int(p["career_term"]),
+        "created_year": int(p["career_year"]),
+        "created_session": int(p["career_session"]),
+        "last_outcome": "Bill drafted. Now seek sponsors and prepare evidence before requesting a second reading.",
+    }
+    p["last_event"] = f"You have drafted the fictional {spec['label']}. The next challenge is to win support and prepare the case for Parliament."
+    _take_action(p, {
+        "id": "draft_private_bill",
+        "label": f"Draft Private Member's Bill: {spec['label']}",
+        "description": f"You draft a bill on {spec['policy_area'].lower()} and set out its intended effect.",
+        "effects": {"policy_expertise": 3, "parliamentary_influence": 1},
+    })
+
+
+def _private_bill_action(p, action_kind):
+    bill = _active_private_bill(p)
+    used = _current_actions(p)
+    action_ids = {
+        "sponsors": "bill_gather_sponsors",
+        "evidence": "bill_prepare_evidence",
+        "second_reading": "bill_second_reading",
+        "committee_evidence": "bill_committee_evidence",
+        "committee_report": "bill_committee_report",
+        "report_amendment": "bill_report_amendment",
+        "third_reading": "bill_third_reading",
+    }
+    action_id = action_ids.get(action_kind)
+    if not bill or not action_id or len(used) >= ACTIONS_PER_SESSION or action_id in used:
+        return
+    effects = {}
+    description = ""
+    if action_kind == "sponsors" and bill["stage"] == "drafting":
+        new_sponsors = 1 + (1 if int(p["faction_standing"].get("cross_party", 35)) >= 60 else 0)
+        bill["sponsors"] = int(bill.get("sponsors", 0)) + new_sponsors
+        bill["last_outcome"] = f"You secured {new_sponsors} additional fictional cross-party sponsor(s)."
+        effects = {"parliamentary_influence": 2, "policy_expertise": 1}
+        description = bill["last_outcome"]
+    elif action_kind == "evidence" and bill["stage"] == "drafting":
+        bill["evidence"] = min(100, int(bill.get("evidence", 0)) + 35)
+        bill["last_outcome"] = f"Evidence prepared. Bill evidence is now {bill['evidence']}%."
+        effects = {"policy_expertise": 3, "integrity": 1}
+        description = bill["last_outcome"]
+    elif action_kind == "second_reading" and bill["stage"] == "drafting":
+        if int(bill.get("sponsors", 0)) < 2 or int(bill.get("evidence", 0)) < 35:
+            return
+        stats = p["stats"]
+        score = (
+            .32 * stats.get("parliamentary_influence", 0)
+            + .27 * stats.get("policy_expertise", 0)
+            + .17 * stats.get("public_profile", 0)
+            + .14 * p["faction_standing"].get("cross_party", 35)
+            + min(12, int(bill.get("sponsors", 0)) * 3)
+            + min(8, int(bill.get("evidence", 0)) * .08)
+        )
+        seed = int(st.session_state.get("seed", 32458))
+        event_seed = seed + int(p["career_total_years"]) * 521 + int(p["career_session"]) * 31 + sum(ord(char) for char in bill["id"])
+        ballot_score = round(score + random.Random(event_seed).uniform(-7, 7), 1)
+        passed = ballot_score >= 43
+        bill["last_outcome"] = f"Second reading {'passed' if passed else 'was defeated'} (procedural support score {ballot_score}/100)."
+        bill["last_ballot_score"] = ballot_score
+        if passed:
+            bill["stage"] = "committee"
+            effects = {"parliamentary_influence": 2, "public_profile": 2, "party_trust": 1}
+        else:
+            bill["stage"] = "defeated"
+            p["private_bill_history"].append(dict(bill))
+            effects = {"public_profile": 1, "parliamentary_influence": -2}
+        description = bill["last_outcome"]
+    elif action_kind == "committee_evidence" and bill["stage"] == "committee":
+        bill["evidence"] = min(100, int(bill.get("evidence", 0)) + 35)
+        bill["last_outcome"] = f"Committee evidence strengthened. Evidence is now {bill['evidence']}%."
+        effects = {"policy_expertise": 3, "integrity": 1, "parliamentary_influence": 1}
+        description = bill["last_outcome"]
+    elif action_kind == "committee_report" and bill["stage"] == "committee":
+        if int(bill.get("evidence", 0)) < 65:
+            return
+        bill["stage"] = "report"
+        bill["last_outcome"] = "Committee stage completed. The bill moves to report stage for further scrutiny and amendments."
+        effects = {"policy_expertise": 1, "parliamentary_influence": 2}
+        description = bill["last_outcome"]
+    elif action_kind == "report_amendment" and bill["stage"] == "report":
+        bill["sponsors"] = int(bill.get("sponsors", 0)) + 1
+        bill["last_outcome"] = "You negotiated an amendment and won another colleague's support."
+        effects = {"parliamentary_influence": 2, "party_trust": 1, "policy_expertise": 1}
+        description = bill["last_outcome"]
+    elif action_kind == "third_reading" and bill["stage"] == "report":
+        if int(bill.get("sponsors", 0)) < 3 or int(bill.get("evidence", 0)) < 65:
+            return
+        stats = p["stats"]
+        score = (
+            .29 * stats.get("parliamentary_influence", 0)
+            + .25 * stats.get("policy_expertise", 0)
+            + .15 * stats.get("public_profile", 0)
+            + .16 * p["faction_standing"].get("cross_party", 35)
+            + min(12, int(bill.get("sponsors", 0)) * 2)
+            + min(8, int(bill.get("evidence", 0)) * .08)
+        )
+        seed = int(st.session_state.get("seed", 32458))
+        event_seed = seed + int(p["career_total_years"]) * 773 + int(p["career_session"]) * 43 + sum(ord(char) for char in bill["id"])
+        ballot_score = round(score + random.Random(event_seed).uniform(-7, 7), 1)
+        passed = ballot_score >= 48
+        if passed:
+            bill["stage"] = "assented"
+            bill["last_outcome"] = f"Third reading passed and Royal Assent was granted in the fictional simulation (support score {ballot_score}/100). Your bill is now law."
+            p["private_bill_history"].append(dict(bill))
+            effects = {"public_profile": 5, "parliamentary_influence": 4, "policy_expertise": 3, "integrity": 2}
+            if bill.get("priority") == p.get("local_mandate"):
+                effects["constituency_support"] = 3
+            p["faction_standing"]["cross_party"] = _clip(p["faction_standing"].get("cross_party", 35) + 8)
+        else:
+            bill["stage"] = "defeated"
+            bill["last_outcome"] = f"The bill failed at third reading (support score {ballot_score}/100). You can return with a revised proposal in a future session."
+            p["private_bill_history"].append(dict(bill))
+            effects = {"public_profile": 1, "parliamentary_influence": -3, "party_trust": -1}
+        description = bill["last_outcome"]
+    else:
+        return
+    if bill.get("stage") in {"assented", "defeated"} and not any(
+        item.get("id") == bill.get("id") and item.get("created_term") == bill.get("created_term")
+        and item.get("created_year") == bill.get("created_year") and item.get("created_session") == bill.get("created_session")
+        for item in p["private_bill_history"]
+    ):
+        p["private_bill_history"].append(dict(bill))
+    bill["last_outcome"] = description
+    _take_action(p, {
+        "id": action_id,
+        "label": f"Private Member's Bill: {action_kind.replace('_', ' ').title()}",
+        "description": description,
+        "effects": effects,
+    })
+
+
+def _launch_constituency_petition(p, topic_id):
+    used = _current_actions(p)
+    current = p.get("petition_campaign")
+    if len(used) >= ACTIONS_PER_SESSION or "launch_petition" in used:
+        return
+    if isinstance(current, dict) and current.get("status") == "active":
+        return
+    topic = PETITION_TOPICS.get(topic_id)
+    if not topic:
+        return
+    current = {
+        "id": topic_id,
+        "title": topic["label"],
+        "description": topic["description"],
+        "priority": topic["priority"],
+        "status": "active",
+        "signatures": 0,
+        "launched_term": int(p["career_term"]),
+        "launched_year": int(p["career_year"]),
+        "launched_session": int(p["career_session"]),
+        "last_outcome": "Petition launched. Organise a signature drive and present it when enough local people have signed.",
+    }
+    p["petition_campaign"] = current
+    _take_action(p, {
+        "id": "launch_petition",
+        "label": f"Launched constituency petition: {topic['label']}",
+        "description": current["last_outcome"],
+        "effects": {"constituency_support": 2, "campaign_readiness": 2},
+    })
+
+
+def _run_petition_action(p, action_kind):
+    campaign = p.get("petition_campaign")
+    used = _current_actions(p)
+    action_ids = {"drive": "petition_signature_drive", "present": "petition_present"}
+    action_id = action_ids.get(action_kind)
+    if not isinstance(campaign, dict) or campaign.get("status") != "active":
+        return
+    if not action_id or len(used) >= ACTIONS_PER_SESSION or action_id in used:
+        return
+    effects = {}
+    if action_kind == "drive":
+        stats = p["stats"]
+        gained = 120 + int(stats.get("constituency_support", 0) * 1.2) + int(stats.get("campaign_readiness", 0) * .8)
+        gained = max(100, min(300, gained))
+        campaign["signatures"] = min(1000, int(campaign.get("signatures", 0)) + gained)
+        campaign["last_outcome"] = f"The signature drive gathered {gained} additional supporters. Total: {campaign['signatures']:,}/1,000."
+        effects = {"constituency_support": 1, "campaign_readiness": 2, "public_profile": 1}
+        p["faction_standing"]["local_party"] = _clip(p["faction_standing"].get("local_party", 50) + 2)
+        description = campaign["last_outcome"]
+    elif action_kind == "present":
+        if int(campaign.get("signatures", 0)) < 400:
+            return
+        campaign["status"] = "presented"
+        campaign["last_outcome"] = f"You presented the petition with {int(campaign['signatures']):,} signatures to the relevant minister or public body."
+        p.setdefault("petition_history", []).append(dict(campaign))
+        effects = {"parliamentary_influence": 2, "public_profile": 2, "constituency_support": 3}
+        if campaign.get("priority") == p.get("local_mandate"):
+            effects["constituency_support"] += 2
+        description = campaign["last_outcome"]
+    else:
+        return
+    campaign["last_outcome"] = description
+    _take_action(p, {
+        "id": action_id,
+        "label": f"Constituency petition: {action_kind.replace('_', ' ').title()}",
+        "description": description,
+        "effects": effects,
+    })
 
 
 def _set_portfolio_and_target(p, portfolio_id, target):
@@ -1065,8 +1355,29 @@ def render():
     safe_name = html.escape(str(p.get("name", "MP")))
     safe_constituency = html.escape(str(p.get("constituency", "Westminster")))
     safe_nation = html.escape(str(p.get("constituency_nation", "United Kingdom")))
-    party = html.escape(str(p.get("party", "Independent")))
+    player_party = str(p.get("party", "Independent"))
+    party = html.escape(player_party)
     role_label = html.escape(str(role.get("label", "MP")))
+    party_colours = {
+        "Labour": ("#E4003B", "#A50028", "#FDE8EE"),
+        "Conservative": ("#0087DC", "#005A96", "#E5F3FF"),
+        "Liberal Democrats": ("#FAA61A", "#B66C00", "#FFF3D9"),
+        "Reform UK": ("#12B6CF", "#087C91", "#DFF9FC"),
+        "Green Party": ("#02A95C", "#00743D", "#E1F7EA"),
+        "SNP": ("#F6C900", "#9C8000", "#FFF8D6"),
+        "Plaid Cymru": ("#005B54", "#003C37", "#E0F2EF"),
+        "Democratic Unionist Party (DUP)": ("#D46A4E", "#92412B", "#FCECE6"),
+        "Sinn Féin": ("#326760", "#214942", "#E5F2EF"),
+        "Alliance Party of Northern Ireland": ("#F7BE00", "#9A7300", "#FFF7D8"),
+        "Social Democratic and Labour Party (SDLP)": ("#2AA82D", "#1D6F20", "#E9F8E8"),
+        "Ulster Unionist Party (UUP)": ("#48A5E0", "#226B9D", "#E7F5FF"),
+        "Independent": ("#667085", "#414956", "#EEF0F4"),
+    }
+    party_accent, party_dark, party_pale = party_colours.get(player_party, party_colours["Independent"])
+    st.markdown(
+        f"<style>:root{{--mp-red:{party_accent};--mp-red-dark:{party_dark};--mp-red-pale:{party_pale};--mp-party-accent:{party_accent};--mp-party-dark:{party_dark};--mp-party-pale:{party_pale};}}</style>",
+        unsafe_allow_html=True,
+    )
 
     st.markdown(
         f"""
