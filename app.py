@@ -95,27 +95,29 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
   border:2px solid var(--mp-red); font-weight:800;
 }
 
-/* Streamlit radio navigation styled as portal tabs */
-[data-testid="stRadio"] { margin:.1rem 0 .5rem; }
-[data-testid="stRadio"] > label { display:none; }
+/* Standard radio controls remain visible for Commons vote choices */
+[data-testid="stRadio"] { margin:.3rem 0 .6rem; }
+[data-testid="stRadio"] > label {
+  display:block; color:#35404c !important; font-weight:750; margin-bottom:.35rem;
+}
 [data-testid="stRadio"] div[role="radiogroup"] {
-  display:flex; align-items:center; gap:clamp(.65rem,2.4vw,2.3rem);
-  border-bottom:1px solid var(--mp-border); padding:0 .15rem; flex-wrap:wrap;
+  display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  padding:.25rem .15rem;
 }
 [data-testid="stRadio"] div[role="radiogroup"] > label {
-  margin:0; padding:.8rem .25rem .75rem; border-radius:0;
-  background:transparent; border-bottom:3px solid transparent;
-  color:#343c47; font-size:1rem; font-weight:760;
-  transition:color .18s ease,border-color .18s ease,transform .18s ease;
+  display:flex; align-items:center; gap:.45rem; padding:.4rem .65rem;
+  background:#fff; border:1px solid var(--mp-border); border-radius:8px;
+  color:#293341; font-weight:650;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
 }
-[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child { display:none !important; }
 [data-testid="stRadio"] div[role="radiogroup"] > label:hover {
-  color:var(--mp-red); transform:translateY(-1px);
+  background:var(--mp-party-pale); border-color:var(--mp-party-accent); transform:translateY(-1px);
 }
-[data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) {
-  color:#111820; border-bottom-color:var(--mp-red);
+[data-testid="stRadio"] input[type="radio"] { accent-color:var(--mp-party-accent); }
+[data-testid="stButton"] button:focus-visible,[data-testid="stRadio"] label:focus-within {
+  outline:3px solid color-mix(in srgb,var(--mp-party-accent) 35%,white);
+  outline-offset:2px;
 }
-[data-testid="stRadio"] div[role="radiogroup"] input { accent-color:var(--mp-red); }
 
 /* Term and parliamentary timeline */
 .mp-season-strip {
