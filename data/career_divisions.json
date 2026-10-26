@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game.",
+  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification.",
   "mandates": {
     "public_services": {
       "label": "Protect public services",
@@ -38,7 +38,13 @@
     "Reform UK",
     "Green Party",
     "SNP",
-    "Plaid Cymru"
+    "Plaid Cymru",
+    "Democratic Unionist Party (DUP)",
+    "Sinn Féin",
+    "Alliance Party of Northern Ireland",
+    "Social Democratic and Labour Party (SDLP)",
+    "Ulster Unionist Party (UUP)",
+    "Independent"
   ],
   "divisions": [
     {
