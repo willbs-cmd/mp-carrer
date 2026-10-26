@@ -377,6 +377,21 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
     }
 
 
+def _ui_progress(value, text=None):
+    """Render one accessible, party-coloured progress bar without nested default themes."""
+    try:
+        percent = max(0.0, min(100.0, float(value) * 100.0))
+    except (TypeError, ValueError):
+        percent = 0.0
+    label = ""
+    if text:
+        label = f"<div class='mp-progress-label'>{html.escape(str(text))}</div>"
+    st.markdown(
+        f"<div class='mp-progress-wrap'>{label}<div class='mp-progress-track' role='progressbar' aria-valuenow='{int(round(percent))}' aria-valuemin='0' aria-valuemax='100' aria-label='{int(round(percent))}% complete'><div class='mp-progress-fill' style='width:{percent:.2f}%'></div></div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _clip(value, low=0, high=100):
     return max(low, min(high, int(round(value))))
 
@@ -1528,7 +1543,7 @@ def render():
         with guide_cols[1]:
             with st.container(border=True):
                 st.markdown("**2 · Career actions**")
-                st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)} of {ACTIONS_PER_SESSION} used · {remaining} remaining")
+                _ui_progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)} of {ACTIONS_PER_SESSION} used · {remaining} remaining")
                 if remaining:
                     if active_bill:
                         st.write(f"Suggested next step: **{html.escape(str(active_bill.get('label', 'your bill')))}**")
@@ -1602,7 +1617,7 @@ def render():
                             st.rerun()
 
             st.markdown("### Political standing")
-            st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this session")
+            _ui_progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this session")
             st.markdown("### Parliamentary record")
             if p.get("history"):
                 for item in reversed(p["history"][-4:]):
@@ -1629,7 +1644,7 @@ def render():
                 else:
                     mood = "You are on the leadership's watchlist. Promotion may be harder."
                 st.write(mood)
-                st.progress(leadership / 100, text=f"Leadership confidence · {leadership}/100")
+                _ui_progress(leadership / 100, text=f"Leadership confidence · {leadership}/100")
                 st.caption(f"Party trust: {int(stats.get('party_trust', 0))}/100")
             with st.container(border=True):
                 st.markdown("### Your diary")
@@ -1685,7 +1700,7 @@ def render():
             with st.container(border=True):
                 st.markdown("### Election readiness")
                 st.metric("Campaign readiness", f"{int(stats.get('campaign_readiness', 30))}/100")
-                st.progress(int(stats.get("campaign_readiness", 30)) / 100)
+                _ui_progress(int(stats.get("campaign_readiness", 30)) / 100)
                 st.write("Canvassing, local events and showing voters you understand their priorities improve your chances at the next simulated general election.")
                 if len(used) >= ACTIONS_PER_SESSION:
                     st.warning("Both action slots are used.")
@@ -1710,7 +1725,7 @@ def render():
                     st.markdown(f"**{html.escape(str(petition['title']))}**")
                     st.write(petition["description"])
                     signatures = int(petition.get("signatures", 0))
-                    st.progress(min(1000, signatures) / 1000, text=f"{signatures:,}/1,000 signatures · {max(0, 400-signatures):,} needed to present")
+                    _ui_progress(min(1000, signatures) / 1000, text=f"{signatures:,}/1,000 signatures · {max(0, 400-signatures):,} needed to present")
                     if petition.get("last_outcome"):
                         st.caption(petition["last_outcome"])
                     drive_col, present_col = st.columns(2, gap="small")
@@ -1765,7 +1780,7 @@ def render():
                 status_col.metric("Current stage", stage_label)
                 sponsor_col.metric("Sponsors", f"{int(bill.get('sponsors', 0))}/3")
                 evidence_col.metric("Evidence prepared", f"{int(bill.get('evidence', 0))}%")
-                st.progress(min(100, int(bill.get("evidence", 0))) / 100, text="Evidence and scrutiny preparation")
+                _ui_progress(min(100, int(bill.get("evidence", 0))) / 100, text="Evidence and scrutiny preparation")
                 if bill.get("last_outcome"):
                     st.info(bill["last_outcome"])
                 bill_cols = st.columns(2, gap="medium")
@@ -1842,7 +1857,7 @@ def render():
             portfolio_cols[0].metric("Department delivery", f"{int(p.get('department_score', 40))}/100")
             portfolio_cols[1].metric("Target progress", f"{int(p.get('department_progress', 0))}%")
             portfolio_cols[2].metric("Completed targets", len(p.get("completed_targets", [])))
-            st.progress(int(p.get("department_progress", 0)) / 100, text=f"Target: {p.get('portfolio_target') or portfolio['targets'][0]}")
+            _ui_progress(int(p.get("department_progress", 0)) / 100, text=f"Target: {p.get('portfolio_target') or portfolio['targets'][0]}")
             with st.container(border=True):
                 st.markdown("#### Set a departmental portfolio and target")
                 portfolio_id_select = st.selectbox(
@@ -1947,7 +1962,7 @@ def render():
             with faction_cols[idx]:
                 faction_value = int(p.get("faction_standing", {}).get(faction_key, 50))
                 st.metric(faction_label, f"{faction_value}/100")
-                st.progress(faction_value / 100)
+                _ui_progress(faction_value / 100)
         people_cols = st.columns(2, gap="medium")
         with people_cols[0]:
             with st.container(border=True):
