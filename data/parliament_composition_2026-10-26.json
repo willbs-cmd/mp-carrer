@@ -78,9 +78,9 @@
     ]
   },
   "lords": {
-    "eligible_members": 795,
-    "source_url": "https://members.parliament.uk/parties/commonsComposition",
-    "source_name": "UK Parliament — Lords membership",
+    "eligible_members": 797,
+    "source_url": "https://members.parliament.uk/parties/lords/by-peerage",
+    "source_name": "UK Parliament — Lords membership by peerage",
     "seats": [
       {
         "party": "Conservative",
@@ -88,14 +88,14 @@
       },
       {
         "party": "Labour",
-        "seats": 233
+        "seats": 232
       },
       {
         "party": "Crossbench",
-        "seats": 154
+        "seats": 155
       },
       {
-        "party": "Liberal Democrat",
+        "party": "Liberal Democrats",
         "seats": 80
       },
       {
@@ -104,7 +104,7 @@
       },
       {
         "party": "Bishops",
-        "seats": 23
+        "seats": 25
       },
       {
         "party": "Democratic Unionist Party (DUP)",
@@ -132,5 +132,5 @@
       }
     ]
   },
-  "note": "Dated snapshot captured on 26 October 2026 from official UK Parliament state-of-the-parties pages. Commons seat counts include the non-voting Speaker and the seven non-sitting Sinn Féin MPs as presented on the official party list. Lords figures count eligible members shown by Parliament. The Parliament page can change; refresh this snapshot if the game is maintained after this date."
+  "note": "Dated snapshot captured on 26 October 2026 from official UK Parliament state-of-the-parties pages. Commons seat counts include the Speaker and the seven non-sitting Sinn Féin MPs as presented on the official party list. Lords figures count eligible members shown by Parliament. The party pages update as membership changes; refresh this snapshot if the game is maintained after this date."
 }
