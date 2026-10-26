@@ -22,6 +22,60 @@ MANDATES = DIVISION_DATA["mandates"]
 VOTE_OPTIONS = ("Aye", "No", "Abstain")
 
 
+INBOX_CASES = [
+    {
+        "id": "gp_access", "priority": "public_services",
+        "title": "Residents report long waits for GP appointments",
+        "description": "A group of constituents say they are struggling to get timely appointments and want you to press for a practical response.",
+    },
+    {
+        "id": "school_places", "priority": "public_services",
+        "title": "Families are worried about school-place pressures",
+        "description": "Parents have raised concerns about overcrowding and support for pupils with additional needs.",
+    },
+    {
+        "id": "rent_repairs", "priority": "cost_living",
+        "title": "Private renters report unresolved repair problems",
+        "description": "Residents say damp, mould and slow repairs are affecting their homes and household budgets.",
+    },
+    {
+        "id": "energy_bills", "priority": "cost_living",
+        "title": "Local households are anxious about energy bills",
+        "description": "Advice groups are seeing residents who are finding it difficult to manage essential household costs.",
+    },
+    {
+        "id": "bus_service", "priority": "climate_transport",
+        "title": "A bus route may be cut or reduced",
+        "description": "Residents who rely on public transport worry that fewer services will make work, college and appointments harder to reach.",
+    },
+    {
+        "id": "flood_defences", "priority": "climate_transport",
+        "title": "Residents want answers on local flood protection",
+        "description": "People in a flood-risk area want clearer plans for maintenance, preparedness and future resilience.",
+    },
+    {
+        "id": "high_street", "priority": "jobs_growth",
+        "title": "Shopkeepers are concerned about empty high-street premises",
+        "description": "Local businesses want action on footfall, skills and the barriers to bringing vacant units back into use.",
+    },
+    {
+        "id": "apprenticeships", "priority": "jobs_growth",
+        "title": "Young residents are asking for more training routes",
+        "description": "Residents and employers want clearer routes into apprenticeships, work experience and skilled jobs.",
+    },
+    {
+        "id": "neighbourhood_safety", "priority": "crime_public_safety",
+        "title": "Residents want action on a neighbourhood safety concern",
+        "description": "Constituents want agencies to work together and provide a clear response to a local safety issue.",
+    },
+    {
+        "id": "spending_transparency", "priority": "integrity",
+        "title": "A community group is asking for clearer public spending information",
+        "description": "Residents want decisions and the use of public funds explained in a way they can scrutinise.",
+    },
+]
+
+
 def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
                 ambition="policy_specialist", local_mandate="public_services", party="Labour"):
     """Create an MP profile tied to a real 2024 Westminster constituency."""
@@ -244,6 +298,53 @@ def _cast_vote(p, choice):
     return True
 
 
+def _current_inbox_cases(p):
+    """Return three repeatable fictional constituent cases for this parliamentary session."""
+    session_key = _session_key(p)
+    seed = int(st.session_state.get("seed", 12345))
+    seat_mix = sum((index + 1) * ord(char) for index, char in enumerate(p.get("constituency", "")))
+    session_mix = sum((index + 3) * ord(char) for index, char in enumerate(session_key))
+    rng = random.Random(seed + seat_mix + session_mix)
+    return rng.sample(INBOX_CASES, k=min(3, len(INBOX_CASES)))
+
+
+def _resolve_inbox_case(p, case, approach):
+    """Resolve one inbox case; handling it consumes one ordinary career-action slot."""
+    used = _current_actions(p)
+    action_id = f"inbox_{case['id']}"
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used:
+        return
+    approaches = {
+        "investigate": {
+            "label": "Investigate and follow up",
+            "effects": {"constituency_support": 4, "integrity": 2, "policy_expertise": 1},
+            "description": "You gather details from the constituent and follow the issue through the relevant service.",
+        },
+        "parliament": {
+            "label": "Raise it in Parliament",
+            "effects": {"public_profile": 3, "parliamentary_influence": 3, "party_trust": -1},
+            "description": "You use parliamentary scrutiny to press for answers and make the issue more visible.",
+        },
+        "coordinate": {
+            "label": "Bring local partners together",
+            "effects": {"constituency_support": 2, "party_trust": 1, "integrity": 1, "policy_expertise": 1},
+            "description": "You seek a practical response by getting the relevant local organisations around the table.",
+        },
+    }
+    chosen = approaches[approach]
+    effects = dict(chosen["effects"])
+    if case["priority"] == p.get("local_mandate"):
+        effects["constituency_support"] = effects.get("constituency_support", 0) + 2
+        effects["public_profile"] = effects.get("public_profile", 0) + 1
+    action = {
+        "id": action_id,
+        "label": f"Inbox: {case['title']} — {chosen['label']}",
+        "description": chosen["description"],
+        "effects": effects,
+    }
+    _take_action(p, action)
+
+
 def _take_action(p, action):
     used = _current_actions(p)
     if len(used) >= ACTIONS_PER_SESSION:
@@ -461,6 +562,33 @@ def render():
             if st.button("Cast vote in the Commons", type="primary", disabled=vote_choice is None, use_container_width=True):
                 if _cast_vote(p, vote_choice):
                     st.rerun()
+
+    st.markdown("### 📬 Constituency inbox")
+    st.caption("Three fictional constituent cases arrive each session. Choose one of the responses below; resolving a case uses one of your two career-action slots. A case matching your campaign priority earns a small extra local-support bonus.")
+    inbox_cols = st.columns(3, gap="medium")
+    for index, case in enumerate(_current_inbox_cases(p)):
+        action_id = f"inbox_{case['id']}"
+        with inbox_cols[index]:
+            with st.container(border=True):
+                st.markdown(f"**{case['title']}**")
+                st.write(case["description"])
+                priority_label = MANDATES.get(case["priority"], {}).get("label", case["priority"])
+                st.caption(f"Area: {priority_label}")
+                if action_id in used:
+                    st.success("Case resolved this session")
+                else:
+                    for approach, label in (
+                        ("investigate", "Investigate and follow up"),
+                        ("parliament", "Raise it in Parliament"),
+                        ("coordinate", "Bring local partners together"),
+                    ):
+                        if st.button(
+                            label,
+                            key=f"inbox_{p['career_term']}_{p['career_year']}_{p['career_session']}_{case['id']}_{approach}",
+                            disabled=remaining <= 0,
+                            use_container_width=True,
+                        ):
+                            _resolve_inbox_case(p, case, approach)
 
     st.markdown("### Parliamentary business")
     st.caption("Choose two career actions per session. A vote does not use one of these action slots.")
