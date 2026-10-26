@@ -311,6 +311,8 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "leadership_contests": [],
         "leadership_cooldown_year": 0,
         "reshuffle_log": [],
+        "completed_targets": [],
+        "cabinet_exclusions": [],
     }
 
 
@@ -362,6 +364,8 @@ def _profile():
     p.setdefault("leadership_contests", [])
     p.setdefault("leadership_cooldown_year", 0)
     p.setdefault("reshuffle_log", [])
+    p.setdefault("completed_targets", [])
+    p.setdefault("cabinet_exclusions", [])
     if p.get("role") in GOVERNMENT_ROLES:
         if p.get("portfolio_id") not in PORTFOLIOS:
             stable_mix = sum((i + 1) * ord(ch) for i, ch in enumerate(p.get("name", "MP")))
@@ -720,9 +724,27 @@ def _run_department_action(p, action):
     _apply_effects(p, action["effects"])
     used.append(action_id)
     p["department_score"] = _clip(int(p.get("department_score", 40)) + int(action["score"]))
-    p["department_progress"] = _clip(int(p.get("department_progress", 0)) + int(action["progress"]))
+    previous_progress = int(p.get("department_progress", 0))
+    new_progress = min(100, previous_progress + int(action["progress"]))
     portfolio = PORTFOLIOS[p["portfolio_id"]]
-    narrative = f"{action['description']} Delivery rating is now {p['department_score']}/100 and target progress is {p['department_progress']}%."
+    target_name = p.get("portfolio_target") or portfolio["targets"][0]
+    target_key = f"{p['portfolio_id']}:{target_name}"
+    narrative = f"{action['description']} "
+    if new_progress >= 100 and previous_progress < 100:
+        if target_key not in p["completed_targets"]:
+            p["completed_targets"].append(target_key)
+            p["completed_targets"] = p["completed_targets"][-30:]
+        completion_bonus = {"policy_expertise": 2, "party_trust": 2, "integrity": 1}
+        _apply_effects(p, completion_bonus)
+        p["department_score"] = _clip(p["department_score"] + 4)
+        target_index = portfolio["targets"].index(target_name) if target_name in portfolio["targets"] else -1
+        p["portfolio_target"] = portfolio["targets"][(target_index + 1) % len(portfolio["targets"])]
+        p["department_progress"] = 0
+        narrative += f"Milestone achieved: {target_name}. Ministers and officials can now focus on the next target: {p['portfolio_target']}. "
+        narrative += f"Completion bonus: {_effect_summary(completion_bonus)}. "
+    else:
+        p["department_progress"] = new_progress
+    narrative += f"Delivery rating is now {p['department_score']}/100 and target progress is {p['department_progress']}%."
     summary = _effect_summary(action["effects"])
     if summary:
         narrative += " Career effects: " + summary + "."
@@ -871,9 +893,18 @@ def _run_cabinet_reshuffle(p, option_key):
     for faction, delta in option.get("factions", {}).items():
         p["faction_standing"][faction] = _clip(p["faction_standing"].get(faction, 50) + delta)
     used.append(action_id)
-    record = {"term": int(p["career_term"]), "year": int(p["career_year"]), "choice": option["label"]}
+    displaced = None
+    if option_key == "remove_rival" and p.get("rivals"):
+        displaced = p["rivals"][0]
+        p["cabinet_exclusions"].append(displaced)
+        p["cabinet_exclusions"] = p["cabinet_exclusions"][-10:]
+    record = {"term": int(p["career_term"]), "year": int(p["career_year"]), "choice": option["label"], "displaced": displaced}
     p.setdefault("reshuffle_log", []).append(record)
     narrative = f"Cabinet reshuffle: {option['label']}. {option['description']}"
+    if displaced:
+        narrative += f" You move fictional rival {displaced} out of your inner Cabinet circle."
+    elif option_key == "remove_rival":
+        narrative += " You use the reshuffle to tighten Cabinet discipline; no personal rival was recorded as part of the reshuffle."
     _record(p, "Cabinet reshuffle", narrative)
     p["last_event"] = narrative
     st.session_state.career_profile = p
