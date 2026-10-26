@@ -108,6 +108,7 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
   color:#343c47; font-size:1rem; font-weight:760;
   transition:color .18s ease,border-color .18s ease,transform .18s ease;
 }
+[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child { display:none !important; }
 [data-testid="stRadio"] div[role="radiogroup"] > label:hover {
   color:var(--mp-red); transform:translateY(-1px);
 }
