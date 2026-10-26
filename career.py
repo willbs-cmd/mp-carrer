@@ -1693,6 +1693,23 @@ def _render_parliament_tab():
             st.info(
                 f"**{chosen['constituency']}** · {chosen['party']} · MP: {chosen['mp']}"
             )
+        st.markdown("**Map key — current party affiliation**")
+        legend_html = []
+        for party_name in sorted(seat_df["party"].dropna().unique()):
+            swatch = PARTY_COLOURS.get(party_name, "#D7DDE5")
+            legend_html.append(
+                f"<span style='display:inline-flex;align-items:center;gap:.35rem;"
+                f"margin:0 .7rem .4rem 0;font-size:.82rem;white-space:nowrap;'>"
+                f"<span style='display:inline-block;width:12px;height:12px;border-radius:3px;"
+                f"background:{swatch};border:1px solid #9ca8b6;'></span>"
+                f"{html.escape(str(party_name))}</span>"
+            )
+        st.markdown(
+            "<div style='display:flex;flex-wrap:wrap;gap:.1rem .25rem;padding:.35rem 0 .7rem;'>"
+            + "".join(legend_html)
+            + "</div>",
+            unsafe_allow_html=True,
+        )
         fig = px.choropleth_map(
             seat_df,
             geojson=geometry,
@@ -1718,7 +1735,7 @@ def _render_parliament_tab():
             margin=dict(l=0, r=0, t=4, b=0),
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#263243"),
-            legend=dict(title="Current party", orientation="h", yanchor="bottom", y=-0.08, xanchor="left", x=0),
+            showlegend=False,
         )
         st.plotly_chart(
             fig,
