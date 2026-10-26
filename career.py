@@ -88,6 +88,123 @@ INBOX_CASES = [
 ]
 
 
+# Fictional Phase 2 Westminster news stories. These are game scenarios, not real headlines.
+PHASE2_NEWS = [
+    {
+        "id": "pmqs_clip", "headline": "A PMQs exchange dominates the lunchtime bulletins",
+        "brief": "A short clip from Prime Minister's Questions is spreading online. Colleagues want you to help shape the story before the evening news.",
+        "choices": [
+            {"id": "factcheck", "label": "Publish a sourced factsheet", "description": "Answer the criticism with evidence and a clear explanation.",
+             "effects": {"policy_expertise": 2, "parliamentary_influence": 2, "integrity": 2, "public_profile": 1}, "factions": {"party_leadership": 2}},
+            {"id": "counterattack", "label": "Launch a sharp counterattack", "description": "Make a punchy intervention that attracts attention, but risks looking evasive.",
+             "effects": {"public_profile": 5, "party_trust": -2, "integrity": -1}, "factions": {"backbenchers": 2, "party_leadership": -2}}
+        ]
+    },
+    {
+        "id": "whips_call", "headline": "The Whips' Office wants a word after a difficult division",
+        "brief": "The Chief Whip is worried about parliamentary arithmetic and wants to know whether you can be relied upon on the next vote.",
+        "choices": [
+            {"id": "private_meeting", "label": "Meet the Whips privately", "description": "Explain your concerns and negotiate a workable way forward.",
+             "effects": {"party_trust": 4, "parliamentary_influence": 2}, "factions": {"party_leadership": 5, "backbenchers": -1}},
+            {"id": "public_stand", "label": "Defend your position publicly", "description": "Show your independence, even if the leadership is annoyed.",
+             "effects": {"public_profile": 4, "integrity": 1, "party_trust": -3}, "factions": {"party_leadership": -4, "backbenchers": 3}}
+        ]
+    },
+    {
+        "id": "expenses_question", "headline": "A local paper asks for details about parliamentary expenses",
+        "brief": "A reporter has asked for an explanation of a claim. The paperwork is available, but a rushed response could turn a small query into a story.",
+        "choices": [
+            {"id": "publish_receipts", "label": "Publish the documents and explain the claim", "description": "Be transparent and let readers inspect the evidence.",
+             "effects": {"integrity": 5, "constituency_support": 2, "public_profile": 1}, "factions": {"local_party": 1}, "risk_delta": -1},
+            {"id": "dismiss_question", "label": "Dismiss the question as a Westminster row", "description": "Move on quickly, but risk making the story look worse.",
+             "effects": {"public_profile": 2, "integrity": -4, "constituency_support": -2}, "risk_delta": 1}
+        ]
+    },
+    {
+        "id": "donor_meeting", "headline": "A donor offers a private briefing ahead of a policy announcement",
+        "brief": "The offer raises questions about transparency and access. Your handling of the meeting could come back to the Standards Commissioner or the press.",
+        "choices": [
+            {"id": "declare_meeting", "label": "Declare the meeting and seek advice", "description": "Record the relevant interest and follow the proper parliamentary process.",
+             "effects": {"integrity": 5, "policy_expertise": 1, "party_trust": 1}, "risk_delta": -2},
+            {"id": "keep_quiet", "label": "Keep the meeting off the record", "description": "You may gain short-term access, but the lack of transparency creates a serious standards risk.",
+             "effects": {"public_profile": 1, "integrity": -6, "party_trust": 1}, "risk_delta": 2}
+        ]
+    },
+    {
+        "id": "committee_leak", "headline": "A Select Committee draft appears in the newspapers",
+        "brief": "A confidential draft has been quoted before colleagues have agreed their report. The committee needs someone to restore confidence in its work.",
+        "choices": [
+            {"id": "protect_process", "label": "Refer the leak through the proper committee process", "description": "Protect evidence-gathering and avoid prejudging the inquiry.",
+             "effects": {"integrity": 4, "policy_expertise": 2, "parliamentary_influence": 1}, "factions": {"backbenchers": 1}},
+            {"id": "feed_story", "label": "Brief journalists to get your side heard", "description": "Your version may dominate the news, but colleagues may see it as self-serving.",
+             "effects": {"public_profile": 4, "parliamentary_influence": 1, "integrity": -3}, "factions": {"backbenchers": -3}, "risk_delta": 1}
+        ]
+    },
+    {
+        "id": "local_campaign", "headline": "Local campaigners challenge the Government's latest announcement",
+        "brief": "A constituency group says the policy misses local needs. The local party wants a response before canvassing this weekend.",
+        "choices": [
+            {"id": "meet_campaigners", "label": "Meet campaigners and take their evidence to Westminster", "description": "Link local concerns to a concrete parliamentary question or amendment.",
+             "effects": {"constituency_support": 4, "policy_expertise": 2, "parliamentary_influence": 1, "campaign_readiness": 2}, "factions": {"local_party": 3}},
+            {"id": "defend_line", "label": "Defend the party line on local radio", "description": "Show loyalty, but accept the risk of sounding out of touch with local concerns.",
+             "effects": {"party_trust": 3, "public_profile": 2, "constituency_support": -2}, "factions": {"party_leadership": 2, "local_party": -2}}
+        ]
+    },
+    {
+        "id": "leadership_briefing", "headline": "An anonymous briefing fuels Westminster leadership speculation",
+        "brief": "Political journalists are reporting tensions in the party and asking MPs for comment. The story is fictional and can affect your relationships.",
+        "choices": [
+            {"id": "cool_tensions", "label": "Call for calm and discuss policy privately", "description": "Avoid adding fuel to the story and work on the disagreements behind it.",
+             "effects": {"party_trust": 2, "integrity": 2, "parliamentary_influence": 1}, "factions": {"party_leadership": 2, "backbenchers": 2}},
+            {"id": "join_briefing", "label": "Use the moment to criticise the leadership", "description": "You may attract attention from discontented colleagues, but it risks your route to promotion.",
+             "effects": {"public_profile": 5, "party_trust": -4, "parliamentary_influence": 1}, "factions": {"party_leadership": -5, "backbenchers": 3}}
+        ]
+    }
+]
+
+PHASE2_FACTIONS = {
+    "party_leadership": "Party leadership",
+    "backbenchers": "Backbench colleagues",
+    "local_party": "Local constituency party",
+    "cross_party": "Cross-party relationships",
+}
+
+# Named characters below are fictional game characters, not real MPs.
+PHASE2_NETWORK_ACTIONS = [
+    {
+        "id": "chief_whip", "label": "Meet the Chief Whip",
+        "description": "Explain your priorities and negotiate with the Whips' Office before a difficult Commons vote.",
+        "effects": {"party_trust": 3, "parliamentary_influence": 2},
+        "factions": {"party_leadership": 6, "backbenchers": -1}
+    },
+    {
+        "id": "backbench_amendment", "label": "Back a colleague's amendment",
+        "description": "Work with Priya Shah, a fictional backbench MP, to build support for a practical amendment.",
+        "effects": {"parliamentary_influence": 3, "policy_expertise": 2, "party_trust": -1},
+        "factions": {"backbenchers": 5, "cross_party": 2}, "ally": "Priya Shah"
+    },
+    {
+        "id": "cross_party", "label": "Build a cross-party coalition",
+        "description": "Work with Alex Morgan, a fictional opposition MP, on an issue where several parties may agree.",
+        "effects": {"parliamentary_influence": 4, "policy_expertise": 2, "party_trust": -1},
+        "factions": {"cross_party": 7}, "ally": "Alex Morgan"
+    },
+    {
+        "id": "doorstep_campaign", "label": "Canvass with local party activists",
+        "description": "Join a doorstep session, listen to residents and help the constituency campaign prepare for the next general election.",
+        "effects": {"constituency_support": 3, "campaign_readiness": 10, "public_profile": 1},
+        "factions": {"local_party": 6}, "ally": "Ellie Watkins"
+    },
+    {
+        "id": "challenge_rival", "label": "Challenge a rival's public briefing",
+        "description": "Challenge Morgan Reed, a fictional political rival, over a claim you believe is misleading.",
+        "effects": {"public_profile": 4, "parliamentary_influence": 2, "party_trust": -2},
+        "factions": {"party_leadership": -1, "backbenchers": 2}, "rival": "Morgan Reed"
+    }
+]
+
+
+
 def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
                 ambition="policy_specialist", local_mandate="public_services", party="Labour"):
     """Create an MP profile tied to a real 2024 Westminster constituency."""
@@ -103,6 +220,7 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "public_profile": 25,
         "policy_expertise": 30,
         "integrity": 78,
+        "campaign_readiness": 30,
     }
     ambition_spec = DATA["ambitions"].get(ambition, DATA["ambitions"]["policy_specialist"])
     for key, value in ambition_spec["effects"].items():
@@ -138,6 +256,11 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "election_result": None,
         "seats_won": 1,
         "promotion_log": [],
+        "faction_standing": {"party_leadership": 50, "backbenchers": 50, "local_party": 50, "cross_party": 35},
+        "allies": [],
+        "rivals": [],
+        "ethics_risk": 0,
+        "news_responses_by_session": {},
     }
 
 
@@ -174,6 +297,13 @@ def _profile():
         p["party"] = st.session_state.get("party", "Labour")
     p.setdefault("promotion_log", [])
     p.setdefault("career_total_years", 0)
+    p.setdefault("faction_standing", {"party_leadership": 50, "backbenchers": 50, "local_party": 50, "cross_party": 35})
+    for faction in PHASE2_FACTIONS:
+        p["faction_standing"].setdefault(faction, 50 if faction != "cross_party" else 35)
+    p.setdefault("allies", [])
+    p.setdefault("rivals", [])
+    p.setdefault("ethics_risk", 0)
+    p.setdefault("news_responses_by_session", {})
     return p
 
 
@@ -408,6 +538,87 @@ def _take_action(p, action):
     st.rerun()
 
 
+def _current_phase2_news(p):
+    """Return one repeatable fictional UK Westminster headline for the current session."""
+    key = _session_key(p)
+    seed = int(st.session_state.get("seed", 12345))
+    seat_mix = sum((index + 1) * ord(char) for index, char in enumerate(p.get("constituency", "")))
+    session_mix = sum((index + 3) * ord(char) for index, char in enumerate(key))
+    index = (seed + seat_mix + session_mix * 7) % len(PHASE2_NEWS)
+    return PHASE2_NEWS[index]
+
+
+def _resolve_phase2_decision(p, action_id, label, description, effects,
+                             faction_effects=None, risk_delta=0, ally=None, rival=None,
+                             response_key=None, response_label=None):
+    """Apply one Phase 2 choice as an ordinary career action."""
+    used = _current_actions(p)
+    if len(used) >= ACTIONS_PER_SESSION or action_id in used:
+        return
+    _apply_effects(p, effects)
+    used.append(action_id)
+    for faction, delta in (faction_effects or {}).items():
+        if faction in PHASE2_FACTIONS:
+            p["faction_standing"][faction] = _clip(p["faction_standing"].get(faction, 50) + delta)
+    if ally and ally not in p["allies"]:
+        p["allies"].append(ally)
+        p["allies"] = p["allies"][-8:]
+    if rival and rival not in p["rivals"]:
+        p["rivals"].append(rival)
+        p["rivals"] = p["rivals"][-8:]
+    p["ethics_risk"] = max(0, min(5, int(p.get("ethics_risk", 0)) + int(risk_delta)))
+    narrative = description
+    summary = _effect_summary(effects)
+    if summary:
+        narrative += " Effects: " + summary + "."
+    if response_key:
+        p.setdefault("news_responses_by_session", {})[_session_key(p)] = {
+            "event_id": response_key,
+            "choice": response_label or label,
+            "effects_summary": summary,
+        }
+    if int(p["ethics_risk"]) >= 3:
+        scrutiny_effects = {"integrity": -8, "party_trust": -4, "public_profile": 4}
+        _apply_effects(p, scrutiny_effects)
+        p["ethics_risk"] = 1
+        narrative += " A transparency lapse has triggered a fictional Westminster standards row; the Standards Commissioner is asking questions."
+    _record(p, label, narrative)
+    p["last_event"] = f"{label}: {summary or 'The decision has affected your political relationships.'}"
+    if int(p.get("ethics_risk", 0)) > 0:
+        p["last_event"] += f" Standards risk: {p['ethics_risk']}/5."
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _resolve_news_choice(p, event, choice):
+    _resolve_phase2_decision(
+        p,
+        action_id=f"news_{event['id']}",
+        label=f"Westminster news: {choice['label']}",
+        description=choice["description"],
+        effects=choice.get("effects", {}),
+        faction_effects=choice.get("factions", {}),
+        risk_delta=choice.get("risk_delta", 0),
+        ally=choice.get("ally"),
+        rival=choice.get("rival"),
+        response_key=event["id"],
+        response_label=choice["label"],
+    )
+
+
+def _resolve_network_action(p, action):
+    _resolve_phase2_decision(
+        p,
+        action_id=f"network_{action['id']}",
+        label=action["label"],
+        description=action["description"],
+        effects=action.get("effects", {}),
+        faction_effects=action.get("factions", {}),
+        ally=action.get("ally"),
+        rival=action.get("rival"),
+    )
+
+
 def _requirements_met(p, spec):
     stats = p["stats"]
     return (
@@ -463,12 +674,13 @@ def _hold_election(p):
     seed = int(st.session_state.get("seed", 12345))
     rng = random.Random(seed + p["career_total_years"] * 911 + p["career_term"] * 503)
     score = (
-        .40 * stats["constituency_support"]
+        .35 * stats["constituency_support"]
         + .15 * stats["party_trust"]
-        + .15 * stats["public_profile"]
+        + .12 * stats["public_profile"]
         + .10 * stats["policy_expertise"]
         + .10 * stats["integrity"]
-        + .10 * stats["parliamentary_influence"]
+        + .08 * stats["parliamentary_influence"]
+        + .10 * stats.get("campaign_readiness", 30)
     )
     margin = round(score + rng.uniform(-8, 8), 1)
     won = margin >= 45
@@ -478,6 +690,7 @@ def _hold_election(p):
         "margin": margin,
         "won": won,
         "threshold": 45,
+        "campaign_readiness": int(stats.get("campaign_readiness", 30)),
     }
     p["election_result"] = result
     if won:
@@ -545,7 +758,7 @@ def render():
     )
     st.markdown(f"## {role['label']}")
     st.write(role["description"])
-    st.caption(f"Career ambition: {DATA['ambitions'][p['ambition']]['label']}. This is a fictionalised career model; promotions depend on your stats and the path you choose.")
+    st.caption(f"Career ambition: {DATA['ambitions'][p['ambition']]['label']}. UK Westminster career simulation: Commons divisions, the party Whips' Office, PMQs, Select Committees, constituency casework and general elections. Appointments and headlines are fictionalised game mechanics.")
 
     stats = p["stats"]
     st.markdown("### Your political standing")
@@ -554,7 +767,8 @@ def render():
         with columns[index % 3]:
             st.metric(label, f"{int(stats.get(key, 0))}/100",
                       help="A game attribute from 0 to 100. Actions and promotion bonuses change it.")
-    st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} actions used this session")
+    st.progress(len(used) / ACTIONS_PER_SESSION, text=f"{len(used)}/{ACTIONS_PER_SESSION} career actions used this parliamentary session")
+    st.progress(int(stats.get("campaign_readiness", 30)) / 100, text=f"Constituency general-election campaign readiness: {int(stats.get('campaign_readiness', 30))}/100")
 
     if p.get("last_event"):
         st.info(p["last_event"])
@@ -612,6 +826,66 @@ def render():
             if st.button("Cast vote in the Commons", type="primary", disabled=vote_choice is None, use_container_width=True):
                 if _cast_vote(p, vote_choice):
                     st.rerun()
+
+    st.markdown("### 📰 Westminster news desk")
+    st.caption("Each parliamentary session brings a fictional political story or dilemma. Responding uses one of your two career-action slots; leaving a story alone has no immediate effect.")
+    news_event = _current_phase2_news(p)
+    news_response = p.get("news_responses_by_session", {}).get(session_key)
+    with st.container(border=True):
+        st.markdown(f"**{news_event['headline']}**")
+        st.write(news_event["brief"])
+        if news_response and news_response.get("event_id") == news_event["id"]:
+            st.success(f"Response recorded: **{news_response['choice']}**.")
+            if news_response.get("effects_summary"):
+                st.caption(f"Effects: {news_response['effects_summary']}.")
+        elif remaining > 0:
+            news_cols = st.columns(len(news_event["choices"]), gap="medium")
+            for idx, choice in enumerate(news_event["choices"]):
+                with news_cols[idx]:
+                    st.markdown(f"**{choice['label']}**")
+                    st.caption(choice["description"])
+                    preview = _effect_summary(choice.get("effects", {}))
+                    if preview:
+                        st.caption(preview)
+                    if st.button(
+                        "Choose this response",
+                        key=f"phase2_news_{p['career_term']}_{p['career_year']}_{p['career_session']}_{news_event['id']}_{choice['id']}",
+                        use_container_width=True,
+                    ):
+                        _resolve_news_choice(p, news_event, choice)
+        else:
+            st.caption("You have used both action slots. You can move on without responding to this story.")
+    with st.expander("🤝 Party factions, allies and rivals", expanded=False):
+        st.caption("Factions and named colleagues are fictional game characters, not descriptions of real MPs. Choices here use a career-action slot.")
+        faction_cols = st.columns(4, gap="small")
+        for idx, (faction_key, faction_label) in enumerate(PHASE2_FACTIONS.items()):
+            with faction_cols[idx]:
+                st.metric(faction_label, f"{int(p['faction_standing'].get(faction_key, 50))}/100")
+        relationship_cols = st.columns(2, gap="medium")
+        with relationship_cols[0]:
+            st.markdown("**Allies**")
+            st.write(", ".join(p["allies"]) if p.get("allies") else "No established allies yet.")
+        with relationship_cols[1]:
+            st.markdown("**Rivals**")
+            st.write(", ".join(p["rivals"]) if p.get("rivals") else "No declared rivals yet.")
+        if remaining > 0:
+            network_cols = st.columns(2, gap="medium")
+            for idx, network_action in enumerate(PHASE2_NETWORK_ACTIONS):
+                with network_cols[idx % 2]:
+                    with st.container(border=True):
+                        st.markdown(f"**{network_action['label']}**")
+                        st.caption(network_action["description"])
+                        effects_text = _effect_summary(network_action.get("effects", {}))
+                        if effects_text:
+                            st.caption(effects_text)
+                        if st.button(
+                            "Take political action",
+                            key=f"phase2_network_{p['career_term']}_{p['career_year']}_{p['career_session']}_{network_action['id']}",
+                            use_container_width=True,
+                        ):
+                            _resolve_network_action(p, network_action)
+        else:
+            st.caption("Your action slots are full. End the session to make more political moves.")
 
     st.markdown("### 📬 Constituency inbox")
     st.caption("Three fictional constituent cases arrive each session. Choose one of the responses below; resolving a case uses one of your two career-action slots. A case matching your campaign priority earns a small extra local-support bonus.")
