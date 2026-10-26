@@ -1,6 +1,15 @@
 """Playable political career mode: from backbench MP towards senior office."""
+import concurrent.futures
 import html
+import json
 import random
+import re
+import unicodedata
+from pathlib import Path
+
+import pandas as pd
+import plotly.express as px
+import requests
 import streamlit as st
 
 from content_store import load_json
@@ -17,28 +26,56 @@ CONSTITUENCIES = CONSTITUENCY_DATA["constituencies"]
 CONSTITUENCY_BY_NAME = {row["name"]: row for row in CONSTITUENCIES}
 CONSTITUENCY_NAMES = [row["name"] for row in CONSTITUENCIES]
 DIVISION_DATA = load_json("career_divisions.json")
+PARLIAMENT_COMPOSITION = load_json("parliament_composition_2026-10-26.json")
 DIVISIONS = DIVISION_DATA["divisions"]
 DIVISION_BY_ID = {row["id"]: row for row in DIVISIONS}
 MANDATES = DIVISION_DATA["mandates"]
 VOTE_OPTIONS = ("Aye", "No", "Abstain")
 
 
-# Abstract game-only party bloc weights (not current Commons seat counts).
-SIMULATED_PARTY_WEIGHTS = {
-    "Labour": 36,
-    "Conservative": 22,
-    "Liberal Democrats": 12,
-    "Reform UK": 8,
-    "Green Party": 5,
-    "SNP": 5,
-    "Plaid Cymru": 3,
-    "Democratic Unionist Party (DUP)": 2,
-    "Sinn Féin": 2,
-    "Alliance Party of Northern Ireland": 1,
-    "Social Democratic and Labour Party (SDLP)": 1,
-    "Ulster Unionist Party (UUP)": 1,
-    "Independent": 2,
+# Commons divisions use full seat counts, rather than percentages or 100 game points.
+# Counts are a dated snapshot of the UK Parliament's state-of-parties list.
+SIMULATED_PARTY_SEATS = {
+    row["party"]: int(row["seats"])
+    for row in PARLIAMENT_COMPOSITION["commons"]["seats"]
 }
+SIMULATED_TOTAL_SEATS = sum(SIMULATED_PARTY_SEATS.values())
+SIMULATED_NON_VOTING_PARTIES = {"Sinn Féin", "Speaker"}
+UK_PARLIAMENT_API = "https://members-api.parliament.uk/api/Members/Search"
+
+PARTY_COLOURS = {
+    "Labour": "#E4003B",
+    "Conservative": "#0087DC",
+    "Liberal Democrats": "#FAA61A",
+    "Reform UK": "#12B6CF",
+    "Green Party": "#02A95C",
+    "SNP": "#F6C900",
+    "Plaid Cymru": "#005B54",
+    "Democratic Unionist Party (DUP)": "#D46A4E",
+    "DUP": "#D46A4E",
+    "Sinn Féin": "#326760",
+    "Alliance Party of Northern Ireland": "#F7BE00",
+    "Alliance": "#F7BE00",
+    "Social Democratic and Labour Party (SDLP)": "#2AA82D",
+    "SDLP": "#2AA82D",
+    "Ulster Unionist Party (UUP)": "#48A5E0",
+    "UUP": "#48A5E0",
+    "Your Party": "#A855F7",
+    "Restore Britain": "#303846",
+    "Traditional Unionist Voice (TUV)": "#3A6EA5",
+    "TUV": "#3A6EA5",
+    "Independent": "#667085",
+    "Speaker": "#8B929B",
+    "Conservative Independent": "#4D79A8",
+    "Crossbench": "#AEB6C2",
+    "Non-affiliated": "#8793A2",
+    "Bishops": "#B89C55",
+    "Lord Speaker": "#8B929B",
+    "Vacant / no current MP": "#D7DDE5",
+    "Party data unavailable": "#D7DDE5",
+}
+
+
 
 
 INBOX_CASES = [
@@ -518,33 +555,52 @@ def _division_for(p):
 
 
 def _simulate_division_result(p, division, choice):
-    """Estimate a fictional vote tally using game-only party weights."""
+    """Simulate a Commons division using the full 650-seat party make-up."""
     ayes = 0
     noes = 0
     abstentions = 0
     player_party = p.get("party", "Labour")
-    for party, weight in SIMULATED_PARTY_WEIGHTS.items():
+    non_voting = 0
+
+    for party, seats in SIMULATED_PARTY_SEATS.items():
+        party_seats = int(seats)
+        # The Speaker does not vote and Sinn Féin's MPs are shown as non-sitting
+        # in the official Commons party list. In this simplified game, those
+        # seats are non-voting unless the player is explicitly playing an SF MP.
+        absent = party_seats if party == "Speaker" else (party_seats if party == "Sinn Féin" else 0)
+        if party == player_party and party in SIMULATED_NON_VOTING_PARTIES:
+            absent = max(0, absent - 1)
+        non_voting += absent
+        bloc_weight = max(0, party_seats - absent)
+        if party == player_party:
+            bloc_weight = max(0, bloc_weight - 1)
+
         whip = division.get("whip", {}).get(party, "Free vote")
-        bloc_weight = max(0, int(weight) - (1 if party == player_party else 0))
         if whip == "Aye":
             ayes += bloc_weight
         elif whip == "No":
             noes += bloc_weight
         else:
-            # A free-vote bloc is split approximately evenly in the simplified model.
+            # Free votes split as evenly as possible in this simplified model.
             ayes += bloc_weight // 2
             noes += bloc_weight - (bloc_weight // 2)
+
     if choice == "Aye":
         ayes += 1
     elif choice == "No":
         noes += 1
     else:
         abstentions += 1
+
+    abstentions += non_voting
     result = "Passed" if ayes > noes else "Rejected"
     return {
         "ayes": int(ayes),
         "noes": int(noes),
         "abstentions": int(abstentions),
+        "non_voting": int(non_voting),
+        "total_seats": int(SIMULATED_TOTAL_SEATS),
+        "votes_cast": int(ayes + noes),
         "result": result,
         "majority": int(abs(ayes - noes)),
     }
