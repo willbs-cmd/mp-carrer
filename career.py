@@ -1743,15 +1743,14 @@ def _render_polling_tab(p):
                 st.markdown(f"**{action['label']}**")
                 st.write(action["description"])
                 st.caption(f"{_effect_summary(action['effects'])} · nominal polling nudge {action['poll_shift']:+.1f} pp before rebalancing")
-                st.button(
+                if st.button(
                     "Take this action",
                     key=f"poll_action_{p['career_term']}_{p['career_year']}_{p['career_session']}_{action['id']}",
                     type="primary" if action["id"] not in used and remaining > 0 else "secondary",
                     disabled=remaining <= 0 or action["id"] in used,
                     use_container_width=True,
-                    on_click=_take_polling_action,
-                    args=(p, action),
-                )
+                ):
+                    _take_polling_action(p, action)
     st.caption("Actions share your two-slot budget with constituency work, policy work, networking and media decisions.")
 
 
