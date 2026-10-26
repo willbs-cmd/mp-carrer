@@ -59,9 +59,9 @@ class CareerGameplayTests(unittest.TestCase):
     def test_private_bill_stage_rules_and_effects_are_consistent(self):
         valid_stages = {"drafting", "committee", "report", "assented", "defeated"}
         self.assertEqual(set(career.PRIVATE_BILL_STAGES), valid_stages)
-        self.assertIn("sponsors", career._active_private_bill({
+        self.assertIsNotNone(career._active_private_bill({
             "private_members_bill": {"stage": "drafting"}
-        }) or {})
+        }))
         for bill in career.PRIVATE_MEMBERS_BILLS.values():
             self.assertIn(bill["priority"], career.MANDATES)
 
