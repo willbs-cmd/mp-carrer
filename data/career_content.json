@@ -7,7 +7,8 @@
     "parliamentary_influence": "Parliamentary influence",
     "public_profile": "Public profile",
     "policy_expertise": "Policy expertise",
-    "integrity": "Integrity"
+    "integrity": "Integrity",
+    "campaign_readiness": "Constituency campaign readiness"
   },
   "ambitions": {
     "policy_specialist": {
