@@ -215,6 +215,15 @@ small, [data-testid="stCaptionContainer"] { color: var(--mp-muted); }
 }
 .mp-person-pill.rival { border-color:#efc2c8; color:#9a2031; background:#fff1f3; }
 .mp-footer-note { padding:1rem 0 0; margin-top:1.4rem; border-top:1px solid var(--mp-border); color:#76818e; font-size:.78rem; letter-spacing:.02em; }
+.mp-hero {
+  background:linear-gradient(115deg,#fff 0%,#fff 72%,#fff6f7 100%);
+  border:1px solid var(--mp-border); border-left:6px solid var(--mp-red);
+  border-radius:14px; padding:1.5rem 1.65rem; margin:.75rem 0 1.25rem;
+  box-shadow:var(--mp-shadow); animation:mpFadeUp .45s ease both;
+}
+.mp-hero .kicker { color:var(--mp-red); text-transform:uppercase; letter-spacing:.13em; font-size:.75rem; font-weight:850; }
+.mp-hero h1 { margin:.35rem 0 .55rem; font-family:Georgia,serif; font-size:clamp(2rem,4vw,3.1rem); line-height:1.12; color:#171b22; }
+.mp-hero p { margin:0; max-width:1000px; color:#5f6a78; font-size:1.04rem; line-height:1.55; }
 .mp-setup-card { background:#fff; border:1px solid var(--mp-border); border-radius:14px; padding:1.3rem; box-shadow:var(--mp-shadow); }
 [data-testid="stProgress"] { margin:.35rem 0 .65rem; }
 [data-testid="stProgress"] > div { background:#e8edf2; border-radius:99px; overflow:hidden; }
