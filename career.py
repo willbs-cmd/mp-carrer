@@ -446,6 +446,12 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "actions_by_session": {},
         "division_by_session": {},
         "votes_by_session": {},
+        "division_strategies": {},
+        "party_discipline": {
+            "total_rebellions": 0, "consecutive_rebellions": 0,
+            "loyalty_streak": 0, "warnings": 0,
+            "last_sanction": "No disciplinary warning recorded.", "history": [],
+        },
         "vote_history": [],
         "voting_intention": _initial_voting_intention(
             party if party in DIVISION_DATA["party_names"] else "Labour",
@@ -525,6 +531,8 @@ def _profile():
     p.setdefault("actions_by_session", {})
     p.setdefault("division_by_session", {})
     p.setdefault("votes_by_session", {})
+    p.setdefault("division_strategies", {})
+    p.setdefault("party_discipline", {})
     p.setdefault("vote_history", [])
     p.setdefault("history", [])
     p.setdefault("manifesto_pledges", [])
@@ -716,8 +724,146 @@ def _simulate_division_result(p, division, choice):
     }
 
 
+def _whip_strength(division, party):
+    """Return the fictional whip severity for this division (0 free, 1–3 line whip)."""
+    if division.get("whip", {}).get(party, "Free vote") == "Free vote":
+        return 0
+    raw = division.get("whip_strength")
+    if isinstance(raw, str):
+        named = {
+            "free": 0, "free vote": 0,
+            "one-line": 1, "one line": 1, "1": 1,
+            "two-line": 2, "two line": 2, "2": 2,
+            "three-line": 3, "three line": 3, "3": 3,
+        }
+        parsed = named.get(raw.strip().lower())
+        if parsed is not None:
+            return parsed
+    elif raw is not None:
+        try:
+            return max(0, min(3, int(raw)))
+        except (TypeError, ValueError):
+            pass
+    title = str(division.get("title", "")).lower()
+    priority = division.get("priority")
+    if priority == "tax_and_spending" or any(
+        phrase in title for phrase in ("confidence", "supply bill", "budget", "appropriation")
+    ):
+        return 3
+    if priority in {"public_services", "cost_living"}:
+        return 2
+    return 1
+
+
+WHIP_STRENGTH_LABELS = {
+    0: "Free vote",
+    1: "One-line whip",
+    2: "Two-line whip",
+    3: "Three-line whip",
+}
+
+
+def _ensure_party_discipline(p):
+    """Add persistent party-discipline tracking while keeping old saves compatible."""
+    state = p.setdefault("party_discipline", {})
+    defaults = {
+        "total_rebellions": 0,
+        "consecutive_rebellions": 0,
+        "loyalty_streak": 0,
+        "warnings": 0,
+        "last_sanction": "No disciplinary warning recorded.",
+        "history": [],
+    }
+    for key, value in defaults.items():
+        state.setdefault(key, value)
+    if not isinstance(state.get("history"), list):
+        state["history"] = []
+    p.setdefault("division_strategies", {})
+    p.setdefault("faction_standing", {
+        "party_leadership": 50, "backbenchers": 50, "local_party": 50, "cross_party": 35
+    })
+    return state
+
+
+def _prepare_division_tactic(p, tactic):
+    """Spend one action to negotiate with the Whips or build support for an amendment."""
+    if tactic not in {"whip_negotiation", "cross_party_amendment"}:
+        return False
+    key = _session_key(p)
+    used = _current_actions(p)
+    if len(used) >= ACTIONS_PER_SESSION or "division_tactic" in used:
+        return False
+    strategies = p.setdefault("division_strategies", {})
+    if key in strategies:
+        return False
+
+    division = _division_for(p)
+    party_name = p.get("party", "Labour")
+    published_whip = division.get("whip", {}).get(party_name, "Free vote")
+    strength = _whip_strength(division, party_name)
+    stats = p.setdefault("stats", {})
+    standing = p.setdefault("faction_standing", {})
+    standing.setdefault("party_leadership", 50)
+    standing.setdefault("cross_party", 35)
+
+    seed = int(st.session_state.get("seed", 32458))
+    session_mix = sum(ord(char) for char in f"{p.get('name', 'MP')}:{key}:{tactic}:{division['id']}")
+    rng = random.Random(seed + session_mix)
+
+    if tactic == "whip_negotiation":
+        if published_whip == "Free vote":
+            return False
+        score = 0.58 * float(stats.get("party_trust", 48)) + 0.42 * float(stats.get("parliamentary_influence", 24))
+        chance = max(0.08, min(0.88, 0.20 + score / 150 - max(0, strength - 1) * 0.12))
+        accepted = rng.random() < chance
+        if accepted:
+            summary = "The Whips accepted your case for a free vote on this division."
+            effects = {"party_trust": 2, "parliamentary_influence": 1}
+            standing["party_leadership"] = _clip(standing["party_leadership"] + 2)
+            override = "Free vote"
+        else:
+            summary = "The Whips rejected your request and reminded you of the party position."
+            effects = {"party_trust": -1}
+            override = None
+        strategy = {
+            "type": tactic, "label": "Negotiated with the Whips",
+            "accepted": accepted, "summary": summary, "whip_override": override,
+            "published_whip": published_whip, "prepared_session": key,
+        }
+    else:
+        expertise = float(stats.get("policy_expertise", 30))
+        influence = float(stats.get("parliamentary_influence", 24))
+        cross_party = float(standing.get("cross_party", 35))
+        score = 0.42 * expertise + 0.33 * influence + 0.25 * cross_party
+        chance = max(0.10, min(0.86, 0.20 + score / 150 - max(0, strength - 1) * 0.08))
+        accepted = rng.random() < chance
+        if accepted:
+            summary = "Colleagues accepted a compromise amendment. It will strengthen the legislative case and soften the local trade-off."
+            effects = {"policy_expertise": 2, "parliamentary_influence": 2}
+            standing["cross_party"] = _clip(cross_party + 4)
+        else:
+            summary = "The amendment failed to attract enough support. You gained useful scrutiny experience, but the party line remains unchanged."
+            effects = {"policy_expertise": 1, "party_trust": -1}
+        strategy = {
+            "type": tactic, "label": "Cross-party amendment",
+            "accepted": accepted, "summary": summary,
+            "whip_override": None, "published_whip": published_whip,
+            "prepared_session": key,
+        }
+
+    used.append("division_tactic")
+    strategies[key] = strategy
+    _apply_effects(p, effects)
+    effect_summary = _effect_summary(effects)
+    narrative = summary + (f" Effects: {effect_summary}." if effect_summary else "")
+    _record(p, strategy["label"], narrative)
+    p["last_event"] = narrative
+    st.session_state.career_profile = p
+    return True
+
+
 def _cast_vote(p, choice):
-    """Record a Commons vote once per session, independently from career action slots."""
+    """Record a Commons vote and apply a graduated, persistent discipline model."""
     if choice not in VOTE_OPTIONS:
         return False
     key = _session_key(p)
@@ -726,29 +872,92 @@ def _cast_vote(p, choice):
         return False
 
     division = _division_for(p)
-    whip = division.get("whip", {}).get(p.get("party", "Labour"), "Free vote")
-    division_result = _simulate_division_result(p, division, choice)
+    party_name = p.get("party", "Labour")
+    published_whip = division.get("whip", {}).get(party_name, "Free vote")
+    strength = _whip_strength(division, party_name)
+    strategy = p.setdefault("division_strategies", {}).get(key, {})
+    effective_whip = strategy.get("whip_override") or published_whip
+    if effective_whip == "Free vote":
+        effective_strength = 0
+        simulation_division = dict(division)
+        simulation_division["whip"] = dict(division.get("whip", {}))
+        simulation_division["whip"][party_name] = "Free vote"
+    else:
+        effective_strength = strength
+        simulation_division = division
+    division_result = _simulate_division_result(p, simulation_division, choice)
+
     effects = {}
     def add(stat, amount):
         effects[stat] = effects.get(stat, 0) + amount
 
-    if whip == "Free vote":
+    discipline = _ensure_party_discipline(p)
+    sanction = "No sanction."
+    followed_whip = effective_whip == "Free vote" or choice == effective_whip
+
+    if effective_whip == "Free vote":
         add("integrity", 1)
         if choice != "Abstain":
             add("public_profile", 1)
             add("parliamentary_influence", 1)
-    elif choice == whip:
-        add("party_trust", 3)
+        if published_whip != "Free vote" and strategy.get("accepted"):
+            sanction = "The concession was honoured; this vote is treated as a free vote."
+        discipline["consecutive_rebellions"] = 0
+        discipline["loyalty_streak"] = int(discipline.get("loyalty_streak", 0)) + 1
+    elif choice == effective_whip:
+        add("party_trust", 2 + effective_strength)
         add("parliamentary_influence", 1)
-    elif choice == "Abstain":
-        add("party_trust", -1)
-        add("integrity", 1)
-        add("public_profile", 1)
+        discipline["loyalty_streak"] = int(discipline.get("loyalty_streak", 0)) + 1
+        discipline["consecutive_rebellions"] = 0
+        if discipline["loyalty_streak"] % 3 == 0:
+            add("party_trust", 1)
+            sanction = "Loyalty streak recognised by the Whips."
+        p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
+        p["faction_standing"]["party_leadership"] = _clip(
+            p["faction_standing"]["party_leadership"] + 1 + effective_strength
+        )
     else:
-        add("party_trust", -5)
-        add("integrity", 2)
-        add("public_profile", 3)
-        add("parliamentary_influence", 2)
+        discipline["total_rebellions"] = int(discipline.get("total_rebellions", 0)) + 1
+        discipline["consecutive_rebellions"] = int(discipline.get("consecutive_rebellions", 0)) + 1
+        discipline["loyalty_streak"] = 0
+        if choice == "Abstain":
+            penalty = {1: -2, 2: -4, 3: -5}.get(effective_strength, -2)
+            add("integrity", 1)
+            add("public_profile", 1)
+            sanction_parts = ["Abstaining against an active whip was recorded as dissent."]
+        else:
+            penalty = {1: -4, 2: -6, 3: -8}.get(effective_strength, -4)
+            add("integrity", 2)
+            add("public_profile", 2 + effective_strength)
+            add("parliamentary_influence", 2)
+            sanction_parts = [
+                f"Rebellion against a {WHIP_STRENGTH_LABELS.get(effective_strength, 'party')} recorded."
+            ]
+        if discipline["consecutive_rebellions"] >= 2:
+            penalty -= 2
+            discipline["warnings"] = int(discipline.get("warnings", 0)) + 1
+            sanction_parts.append("Repeated dissent triggered a formal warning and leadership-confidence penalty.")
+            p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
+            p["faction_standing"]["party_leadership"] = _clip(
+                p["faction_standing"]["party_leadership"] - 4
+            )
+        if effective_strength == 3:
+            if discipline["consecutive_rebellions"] < 2:
+                discipline["warnings"] = int(discipline.get("warnings", 0)) + 1
+            sanction_parts.append("A three-line whip means the Chief Whip is likely to review your conduct.")
+            p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
+            p["faction_standing"]["party_leadership"] = _clip(
+                p["faction_standing"]["party_leadership"] - 3
+            )
+        if discipline["total_rebellions"] >= 3:
+            sanction_parts.append("You are now on the party managers' watchlist; promotion prospects are weaker.")
+            p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
+            p["faction_standing"]["party_leadership"] = _clip(
+                p["faction_standing"]["party_leadership"] - 2
+            )
+        add("party_trust", penalty)
+        sanction = " ".join(sanction_parts)
+        discipline["last_sanction"] = sanction
 
     mandate_match = division.get("priority") == p.get("local_mandate")
     local_preference = division.get("local_preference", "Free vote")
@@ -761,7 +970,29 @@ def _cast_vote(p, choice):
         else:
             add("constituency_support", -3)
 
+    if strategy.get("type") == "cross_party_amendment" and strategy.get("accepted"):
+        if choice == local_preference:
+            add("constituency_support", 2)
+        else:
+            add("policy_expertise", 1)
+        add("parliamentary_influence", 1)
+        strategy["vote_cast"] = True
+
     _apply_effects(p, effects)
+    discipline_record = {
+        "term": int(p["career_term"]),
+        "year": int(p["career_year"]),
+        "session": int(p["career_session"]),
+        "division": division["title"],
+        "vote": choice,
+        "whip": effective_whip,
+        "whip_strength": WHIP_STRENGTH_LABELS.get(effective_strength, "Unknown"),
+        "followed_whip": followed_whip,
+        "sanction": sanction,
+    }
+    discipline.setdefault("history", []).append(discipline_record)
+    discipline["history"] = discipline["history"][-24:]
+
     record = {
         "term": int(p["career_term"]),
         "year": int(p["career_year"]),
@@ -769,9 +1000,14 @@ def _cast_vote(p, choice):
         "division_id": division["id"],
         "title": division["title"],
         "vote": choice,
-        "party": p.get("party", "Labour"),
-        "party_whip": whip,
-        "followed_whip": (whip == "Free vote" or choice == whip),
+        "party": party_name,
+        "party_whip": effective_whip,
+        "published_party_whip": published_whip,
+        "whip_strength": WHIP_STRENGTH_LABELS.get(effective_strength, "Unknown"),
+        "followed_whip": followed_whip,
+        "discipline_sanction": sanction,
+        "strategy": strategy.get("label"),
+        "strategy_outcome": strategy.get("summary"),
         "division_result": division_result,
         "local_priority": p.get("local_mandate"),
         "constituency_effect": "Aligned with local priority" if mandate_match and choice == local_preference else ("Conflicted with local priority" if mandate_match and choice in ("Aye", "No") else "No direct local-priority effect"),
@@ -783,13 +1019,16 @@ def _cast_vote(p, choice):
     p["vote_history"] = (p["vote_history"] + [record])[-40:]
     p["last_vote"] = record
     summary = _effect_summary(effects)
-    narrative = f"You voted {choice} on '{division['title']}'. Party whip: {whip}."
+    narrative = f"You voted {choice} on '{division['title']}'. Party whip: {effective_whip} ({WHIP_STRENGTH_LABELS.get(effective_strength, 'Unknown')})."
     if summary:
         narrative += f" Effects: {summary}."
+    if sanction not in {"No sanction.", "The concession was honoured; this vote is treated as a free vote."}:
+        narrative += f" Discipline update: {sanction}"
     _record(p, f"Commons division · {choice}", narrative)
     p["last_event"] = narrative
     st.session_state.career_profile = p
     return True
+
 
 
 def _current_inbox_cases(p):
@@ -2433,15 +2672,71 @@ def render():
                 st.write(division["description"])
                 whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
                 st.markdown(whip_label)
+                whip_strength = _whip_strength(division, p.get("party", "Labour"))
+                st.caption(f"Whip strength: {WHIP_STRENGTH_LABELS.get(whip_strength, 'Unknown')}. A stronger whip means larger trust and leadership consequences if you dissent.")
                 st.caption(f"Local mandate: {MANDATES.get(p.get('local_mandate'), {}).get('label', p.get('local_mandate', 'Not set'))}. The result uses the full 650-seat model, but the party blocs and whip are simplified fictional gameplay—not a real Commons division.")
                 if saved_vote:
                     st.success(f"Vote recorded: **{saved_vote['vote']}** · Party whip: {saved_vote['party_whip']}.")
+                    if saved_vote.get("discipline_sanction") not in (None, "No sanction.", "The concession was honoured; this vote is treated as a free vote."):
+                        st.warning(saved_vote["discipline_sanction"])
+                    if saved_vote.get("strategy_outcome"):
+                        st.caption(f"Prepared tactic: {saved_vote.get('strategy_outcome')}")
                     result = saved_vote.get("division_result")
                     if result:
                         st.info(f"Simulated result: **{result['result']}** · Ayes {result['ayes']:,} – Noes {result['noes']:,} · Not voting / abstaining {result['abstentions']:,} · Majority {result['majority']:,} across a {result['total_seats']}-seat House.")
                     if saved_vote.get("effects_summary"):
                         st.caption(f"Career effects: {saved_vote['effects_summary']}.")
+                    discipline = _ensure_party_discipline(p)
+                    with st.expander("Party-discipline record", expanded=False):
+                        dc = st.columns(3, gap="small")
+                        dc[0].metric("Rebellions", int(discipline.get("total_rebellions", 0)))
+                        dc[1].metric("Consecutive", int(discipline.get("consecutive_rebellions", 0)))
+                        dc[2].metric("Warnings", int(discipline.get("warnings", 0)))
+                        st.caption(str(discipline.get("last_sanction", "No disciplinary warning recorded.")))
+                        for entry in reversed(discipline.get("history", [])[-5:]):
+                            status = "followed the whip" if entry.get("followed_whip") else "dissented"
+                            st.caption(
+                                f"Term {entry.get('term')} · Year {entry.get('year')} · Session {entry.get('session')}: "
+                                f"{entry.get('vote')} on {entry.get('division')} — {status} "
+                                f"({entry.get('whip_strength')}). {entry.get('sanction', '')}"
+                            )
                 else:
+                    strategy = p.setdefault("division_strategies", {}).get(session_key)
+                    discipline = _ensure_party_discipline(p)
+                    with st.expander("Legislative strategy and party discipline", expanded=False):
+                        st.caption(
+                            f"Rebellions recorded: {int(discipline.get('total_rebellions', 0))} · "
+                            f"Consecutive rebellions: {int(discipline.get('consecutive_rebellions', 0))} · "
+                            f"Formal warnings: {int(discipline.get('warnings', 0))}."
+                        )
+                        st.caption(
+                            "Spend one career action to negotiate for a free vote or to organise a cross-party amendment. "
+                            "Repeated dissent and stronger whips carry escalating consequences."
+                        )
+                        if strategy:
+                            st.info(f"{strategy.get('label', 'Tactic prepared')}: {strategy.get('summary', '')}")
+                        else:
+                            tactic_labels = {
+                                "whip_negotiation": "Negotiate with the Whips for a free vote",
+                                "cross_party_amendment": "Build cross-party support for an amendment",
+                            }
+                            tactic_options = ["cross_party_amendment"]
+                            if whip != "Free vote":
+                                tactic_options.insert(0, "whip_negotiation")
+                            selected_tactic = st.selectbox(
+                                "Tactic to prepare",
+                                tactic_options,
+                                format_func=lambda item: tactic_labels[item],
+                                key=f"division_tactic_choice_{session_key}",
+                            )
+                            if st.button(
+                                "Prepare tactic (uses 1 action)",
+                                key=f"division_tactic_prepare_{session_key}",
+                                disabled=remaining <= 0 or "division_tactic" in used,
+                                use_container_width=True,
+                            ):
+                                if _prepare_division_tactic(p, selected_tactic):
+                                    st.rerun()
                     vote_choice = st.radio(
                         "How will you vote?",
                         VOTE_OPTIONS,

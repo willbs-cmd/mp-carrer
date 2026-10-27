@@ -6,6 +6,7 @@ import json
 import streamlit as st
 
 import career
+import political_features
 
 st.set_page_config(
     page_title="Westminster · UK MP Career",
@@ -443,3 +444,4 @@ if st.session_state.get("step") == "setup" or not isinstance(profile, dict):
         st.rerun()
 else:
     career.render()
+    political_features.render(st.session_state.get("career_profile"))
