@@ -652,12 +652,14 @@ def _division_for(p):
     # The Budget storyline happens once per career year, alternating between
     # Autumn and Spring. Session 2 (Summer) remains available for ordinary divisions.
     # Never rewrite a vote that has already been cast in an older save.
+    budget_config = DIVISION_BY_ID.get("annual_budget", {})
+    trigger_sessions = budget_config.get("trigger_sessions", [1, 3])
     budget_session = 3 if year % 2 == 1 else 1
     division_id = p["division_by_session"].get(key)
     if isinstance(saved_vote, dict):
         division_id = saved_vote.get("division_id", division_id)
-    elif session == budget_session and "annual_budget" in DIVISION_BY_ID:
-        division_id = "annual_budget"
+    elif session == budget_session and session in trigger_sessions and budget_config:
+        division_id = budget_config["id"]
 
     if division_id not in DIVISION_BY_ID:
         seed = int(st.session_state.get("seed", 12345))
