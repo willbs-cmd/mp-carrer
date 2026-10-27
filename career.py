@@ -112,6 +112,40 @@ POLLING_ACTIONS = [
     },
 ]
 
+MANIFESTO_PLEDGES = {
+    "nhs_access": {
+        "label": "Improve access to NHS appointments",
+        "description": "Promise a practical plan to improve GP access and reduce avoidable delays.",
+        "attribute": "policy_expertise", "threshold": 42,
+    },
+    "cost_of_living": {
+        "label": "Help households with the cost of living",
+        "description": "Commit to a credible plan on essential bills, wages and household security.",
+        "attribute": "integrity", "threshold": 48,
+    },
+    "housing": {
+        "label": "Improve housing and renters' protections",
+        "description": "Promise action on housing quality, affordability and renters' concerns.",
+        "attribute": "constituency_support", "threshold": 50,
+    },
+    "transport": {
+        "label": "Strengthen local transport links",
+        "description": "Commit to better local bus, rail and access-to-work connections.",
+        "attribute": "campaign_readiness", "threshold": 42,
+    },
+    "skills": {
+        "label": "Expand skills and apprenticeships",
+        "description": "Promise more routes into training, apprenticeships and secure work.",
+        "attribute": "policy_expertise", "threshold": 38,
+    },
+    "transparency": {
+        "label": "Raise standards and transparency",
+        "description": "Commit to clear declarations, honest reporting and accountable decisions.",
+        "attribute": "integrity", "threshold": 60,
+    },
+}
+
+
 INBOX_CASES = [
     {
         "id": "gp_access", "priority": "public_services",
@@ -453,6 +487,8 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "private_bill_history": [],
         "petition_campaign": None,
         "petition_history": [],
+        "manifesto_pledges": [],
+        "manifesto_history": [],
     }
 
 
@@ -491,6 +527,8 @@ def _profile():
     p.setdefault("votes_by_session", {})
     p.setdefault("vote_history", [])
     p.setdefault("history", [])
+    p.setdefault("manifesto_pledges", [])
+    p.setdefault("manifesto_history", [])
     # Upgrade votes saved before the full House model was introduced. This
     # avoids showing the old 100-point result or missing total_seats key after
     # a player refreshes the app mid-session.
@@ -799,6 +837,67 @@ def _resolve_inbox_case(p, case, approach):
         "effects": effects,
     }
     _take_action(p, action)
+
+
+def _make_manifesto_pledge(p, pledge_id):
+    """Add a fictional manifesto commitment; its credibility is assessed on election night."""
+    spec = MANIFESTO_PLEDGES.get(pledge_id)
+    if not spec:
+        return
+    used = _current_actions(p)
+    pledges = p.setdefault("manifesto_pledges", [])
+    if len(used) >= ACTIONS_PER_SESSION or pledge_id in used or len(pledges) >= 3:
+        return
+    if any(item.get("id") == pledge_id for item in pledges):
+        return
+    pledges.append({
+        "id": pledge_id,
+        "label": spec["label"],
+        "description": spec["description"],
+        "attribute": spec["attribute"],
+        "threshold": int(spec["threshold"]),
+        "announced_term": int(p.get("career_term", 1)),
+        "announced_year": int(p.get("career_year", 1)),
+        "status": "pending",
+    })
+    used.append(pledge_id)
+    effects = {"public_profile": 2, "campaign_readiness": 3}
+    _apply_effects(p, effects)
+    summary = _effect_summary(effects)
+    text = f"Manifesto promise announced: {spec['label']}. Voters will judge your credibility at the next general election."
+    _record(p, "Manifesto: " + spec["label"], text + (f" Effects: {summary}." if summary else ""))
+    p["last_event"] = text
+    st.session_state.career_profile = p
+    st.rerun()
+
+
+def _score_manifesto_pledges(p):
+    """Resolve manifesto commitments against game-stat thresholds at election time."""
+    result = []
+    score_effect = 0
+    stats = p.get("stats", {})
+    for pledge in p.get("manifesto_pledges", []):
+        attribute = pledge.get("attribute", "policy_expertise")
+        threshold = int(pledge.get("threshold", 50))
+        kept = float(stats.get(attribute, 0)) >= threshold
+        pledge["status"] = "kept" if kept else "missed"
+        pledge["election_value"] = 1 if kept else -1
+        score_effect += pledge["election_value"]
+        result.append({
+            "label": pledge.get("label", "Manifesto promise"),
+            "status": pledge["status"],
+            "attribute": attribute,
+            "value": int(stats.get(attribute, 0)),
+            "threshold": threshold,
+        })
+    score_effect = max(-3, min(3, score_effect))
+    p["manifesto_history"].append({
+        "term": int(p.get("career_term", 1)),
+        "promises": result,
+        "score_effect": score_effect,
+    })
+    p["manifesto_history"] = p["manifesto_history"][-10:]
+    return score_effect, result
 
 
 def _take_action(p, action):
@@ -1427,6 +1526,8 @@ def _hold_election(p):
     polling_leader = max(polls, key=polls.get)
     polling_effect = max(-3.5, min(3.5, (party_vote_share - 20.0) * 0.12))
     score = round(score + polling_effect, 1)
+    manifesto_effect, manifesto_results = _score_manifesto_pledges(p)
+    score = round(score + manifesto_effect, 1)
     margin = round(score + rng.uniform(-8, 8), 1)
     won = margin >= 45
     result = {
@@ -1440,6 +1541,8 @@ def _hold_election(p):
         "polling_leader": polling_leader,
         "polling_snapshot": dict(polls),
         "polling_effect": round(polling_effect, 1),
+        "manifesto_effect": manifesto_effect,
+        "manifesto_results": manifesto_results,
     }
     p["election_result"] = result
     if won:
@@ -2489,6 +2592,36 @@ def render():
 
     elif active_tab == "Plans":
         st.markdown("## Policy and parliamentary plans")
+        st.markdown("### 🗳️ Manifesto and campaign promises")
+        st.caption("Make up to three fictional manifesto promises. Each announcement uses a career-action slot. At election time, your stats determine whether voters judge each promise as kept or missed.")
+        pledges = p.setdefault("manifesto_pledges", [])
+        pledge_cols = st.columns(3, gap="medium")
+        for idx, (pledge_id, pledge_spec) in enumerate(MANIFESTO_PLEDGES.items()):
+            with pledge_cols[idx % 3]:
+                with st.container(border=True):
+                    already = any(item.get("id") == pledge_id for item in pledges)
+                    st.markdown(f"**{pledge_spec['label']}**")
+                    st.write(pledge_spec["description"])
+                    stat_value = int(p.get("stats", {}).get(pledge_spec["attribute"], 0))
+                    st.caption(f"Election-night test: {ATTRIBUTES.get(pledge_spec['attribute'], pledge_spec['attribute'])} {pledge_spec['threshold']}+ · currently {stat_value}")
+                    if already:
+                        st.success("Promise already in your manifesto")
+                    elif len(pledges) >= 3:
+                        st.caption("Manifesto limit reached (3 promises).")
+                    elif st.button("Announce promise", key=f"manifesto_{p['career_term']}_{p['career_year']}_{p['career_session']}_{pledge_id}", disabled=remaining <= 0 or pledge_id in used, use_container_width=True):
+                        _make_manifesto_pledge(p, pledge_id)
+        if pledges:
+            with st.container(border=True):
+                st.markdown("#### Your manifesto")
+                for pledge in pledges:
+                    st.markdown(f"**{html.escape(str(pledge.get('label', 'Promise')))}**")
+                    st.caption(f"Status: {pledge.get('status', 'pending').title()} · Election test: {pledge.get('attribute', 'policy_expertise')} ≥ {pledge.get('threshold', 50)}")
+        if p.get("manifesto_history"):
+            with st.expander("Previous election promise records", expanded=False):
+                for record in reversed(p["manifesto_history"][-5:]):
+                    st.markdown(f"**Term {record['term']} · manifesto effect {record['score_effect']:+d} election points**")
+                    for item in record.get("promises", []):
+                        st.caption(f"{'✓' if item['status'] == 'kept' else '✗'} {item['label']} — {item['status'].title()} ({item['value']}/{item['threshold']})")
         st.caption("Use your career actions to build expertise, work with colleagues and deliver your current responsibilities.")
         st.markdown("### 🧾 Private Members' Bill office")
         st.caption("Take an idea from a first draft through sponsorship, second reading, committee scrutiny, report stage and a final vote. This is a simplified fictional version of the parliamentary process, and each step uses one career-action slot.")
