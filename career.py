@@ -2332,6 +2332,17 @@ def render():
                 f"Polling contribution to your constituency result: {float(election_record.get('polling_effect', 0)):+.1f} points. "
                 "This is an invented game mechanic, not an election prediction."
             )
+        if election_record.get("manifesto_results"):
+            st.markdown("### Manifesto promise report")
+            st.caption(f"Promise credibility changed your simulated election score by {int(election_record.get('manifesto_effect', 0)):+d} points.")
+            promise_cols = st.columns(min(3, len(election_record["manifesto_results"])), gap="small")
+            for idx, promise in enumerate(election_record["manifesto_results"]):
+                with promise_cols[idx % len(promise_cols)]:
+                    if promise["status"] == "kept":
+                        st.success(f"Kept: {promise['label']}")
+                    else:
+                        st.error(f"Missed: {promise['label']}")
+                    st.caption(f"{promise['attribute'].replace('_', ' ').title()}: {promise['value']}/{promise['threshold']}")
         st.caption(f"General elections won: {max(0, int(p.get('seats_won', 1)) - 1)} · Allies: {len(p.get('allies', []))} · Rivals: {len(p.get('rivals', []))} · Final standards risk: {int(p.get('ethics_risk', 0))}/5")
         with st.expander("Career record", expanded=True):
             for item in reversed(p.get("history", [])[-20:]):
