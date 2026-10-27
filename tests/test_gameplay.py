@@ -50,6 +50,30 @@ class CareerGameplayTests(unittest.TestCase):
             self.assertIn("poll_shift", action)
             self.assertTrue(set(action.get("effects", {})).issubset(career.ATTRIBUTES), action["id"])
 
+    def test_manifesto_promises_affect_election_score(self):
+        self.assertGreaterEqual(len(career.MANIFESTO_PLEDGES), 6)
+        self.assertEqual(self.profile["manifesto_pledges"], [])
+        self.profile["manifesto_pledges"] = [
+            {
+                "id": "nhs_access",
+                "label": career.MANIFESTO_PLEDGES["nhs_access"]["label"],
+                "attribute": "policy_expertise",
+                "threshold": 20,
+                "status": "pending",
+            },
+            {
+                "id": "transparency",
+                "label": career.MANIFESTO_PLEDGES["transparency"]["label"],
+                "attribute": "integrity",
+                "threshold": 99,
+                "status": "pending",
+            },
+        ]
+        effect, results = career._score_manifesto_pledges(self.profile)
+        self.assertEqual(effect, 0)
+        self.assertEqual([row["status"] for row in results], ["kept", "missed"])
+        self.assertEqual(len(self.profile["manifesto_history"]), 1)
+
     def test_new_profile_has_phase_two_and_three_state(self):
         self.assertIn("campaign_readiness", self.profile["stats"])
         self.assertEqual(self.profile["stats"]["campaign_readiness"], 30)
