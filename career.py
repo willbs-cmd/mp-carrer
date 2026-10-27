@@ -2685,6 +2685,20 @@ def render():
                         st.info(f"Simulated result: **{result['result']}** · Ayes {result['ayes']:,} – Noes {result['noes']:,} · Not voting / abstaining {result['abstentions']:,} · Majority {result['majority']:,} across a {result['total_seats']}-seat House.")
                     if saved_vote.get("effects_summary"):
                         st.caption(f"Career effects: {saved_vote['effects_summary']}.")
+                    discipline = _ensure_party_discipline(p)
+                    with st.expander("Party-discipline record", expanded=False):
+                        dc = st.columns(3, gap="small")
+                        dc[0].metric("Rebellions", int(discipline.get("total_rebellions", 0)))
+                        dc[1].metric("Consecutive", int(discipline.get("consecutive_rebellions", 0)))
+                        dc[2].metric("Warnings", int(discipline.get("warnings", 0)))
+                        st.caption(str(discipline.get("last_sanction", "No disciplinary warning recorded.")))
+                        for entry in reversed(discipline.get("history", [])[-5:]):
+                            status = "followed the whip" if entry.get("followed_whip") else "dissented"
+                            st.caption(
+                                f"Term {entry.get('term')} · Year {entry.get('year')} · Session {entry.get('session')}: "
+                                f"{entry.get('vote')} on {entry.get('division')} — {status} "
+                                f"({entry.get('whip_strength')}). {entry.get('sanction', '')}"
+                            )
                 else:
                     strategy = p.setdefault("division_strategies", {}).get(session_key)
                     discipline = _ensure_party_discipline(p)
