@@ -20,3 +20,24 @@ def load_json(filename):
         ) from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
+
+
+
+@lru_cache(maxsize=1)
+def load_press_stories():
+    """Return editable press-room scenarios used by the MP career game.
+
+    The risk values are fictional game mechanics. The named podcasts are possible
+    in-game outlets, not claims that real programmes received or published leaks.
+    """
+    return [
+        {"title": "Rival minister's transport timetable collapses",
+         "detail": "A private briefing suggests the department underestimated delays.",
+         "boost": 5, "risk": 0.28},
+        {"title": "Internal polling shows a wobble in key marginals",
+         "detail": "A party memo hints that several target seats are moving.",
+         "boost": 6, "risk": 0.36},
+        {"title": "A policy launch was rewritten overnight",
+         "detail": "Colleagues are arguing over who watered down a flagship promise.",
+         "boost": 4, "risk": 0.22},
+    ]
