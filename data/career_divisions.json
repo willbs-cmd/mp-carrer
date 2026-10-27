@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification. The game party selector also includes Your Party, Restore Britain and Traditional Unionist Voice, which appear in the UK Parliament's current state-of-parties list as of 26 October 2026.",
+  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification. The game party selector also includes Your Party, Restore Britain and Traditional Unionist Voice, which appear in the UK Parliament's current state-of-parties list as of 26 October 2026. An annual Budget and Supply vote is scripted into Spring or Autumn sessions (alternating by career year) and uses a strict three-line confidence whip in the fictional game.",
   "mandates": {
     "public_services": {
       "label": "Protect public services",
@@ -368,6 +368,38 @@
         "Green Party": "Free vote",
         "SNP": "Free vote",
         "Plaid Cymru": "Free vote"
+      }
+    },
+    {
+      "id": "annual_budget",
+      "title": "Government Budget and Supply Vote",
+      "priority": "tax_and_spending",
+      "local_preference": "Aye",
+      "storyline": "annual_budget",
+      "trigger_sessions": [
+        1,
+        3
+      ],
+      "whip_strength": 3,
+      "confidence_vote": true,
+      "description": "The Government presents its annual Budget and asks the Commons to approve taxation and supply. Your party treats this as a confidence-level three-line whip. Defeat can trigger a government crisis in this simulation; rebelling risks severe loss of party trust, leadership confidence and parliamentary influence. Local priorities and fiscal choices may still pull in different directions.",
+      "whip": {
+        "Labour": "Aye",
+        "Conservative": "No",
+        "Liberal Democrats": "No",
+        "Reform UK": "No",
+        "Green Party": "No",
+        "SNP": "No",
+        "Plaid Cymru": "No",
+        "Democratic Unionist Party (DUP)": "No",
+        "Sinn Féin": "No",
+        "Alliance Party of Northern Ireland": "No",
+        "Social Democratic and Labour Party (SDLP)": "No",
+        "Ulster Unionist Party (UUP)": "No",
+        "Independent": "No",
+        "Your Party": "No",
+        "Restore Britain": "No",
+        "Traditional Unionist Voice (TUV)": "No"
       }
     }
   ]

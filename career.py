@@ -642,20 +642,34 @@ def _effect_summary(effects):
 
 
 def _division_for(p):
-    """Return one deterministic, persisted division for the current parliamentary session."""
+    """Return one persisted division, reserving Spring or Autumn for the annual Budget vote."""
     key = _session_key(p)
     p.setdefault("division_by_session", {})
+    session = int(p.get("career_session", 1))
+    year = int(p.get("career_year", 1))
+    saved_vote = p.get("votes_by_session", {}).get(key)
+
+    # The Budget storyline happens once per career year, alternating between
+    # Autumn and Spring. Session 2 (Summer) remains available for ordinary divisions.
+    # Never rewrite a vote that has already been cast in an older save.
+    budget_config = DIVISION_BY_ID.get("annual_budget", {})
+    trigger_sessions = budget_config.get("trigger_sessions", [1, 3])
+    budget_session = 3 if year % 2 == 1 else 1
     division_id = p["division_by_session"].get(key)
+    if isinstance(saved_vote, dict):
+        division_id = saved_vote.get("division_id", division_id)
+    elif session == budget_session and session in trigger_sessions and budget_config:
+        division_id = budget_config["id"]
+
     if division_id not in DIVISION_BY_ID:
         seed = int(st.session_state.get("seed", 12345))
         seat_mix = sum((index + 1) * ord(char) for index, char in enumerate(p.get("constituency", "")))
         term = int(p.get("career_term", 1))
-        year = int(p.get("career_year", 1))
-        session = int(p.get("career_session", 1))
         index = (seed + seat_mix + term * 37 + year * 113 + session * 271) % len(DIVISIONS)
         division_id = DIVISIONS[index]["id"]
-        p["division_by_session"][key] = division_id
-        st.session_state.career_profile = p
+
+    p["division_by_session"][key] = division_id
+    st.session_state.career_profile = p
     return DIVISION_BY_ID[division_id]
 
 
@@ -801,6 +815,8 @@ def _prepare_division_tactic(p, tactic):
     party_name = p.get("party", "Labour")
     published_whip = division.get("whip", {}).get(party_name, "Free vote")
     strength = _whip_strength(division, party_name)
+    if tactic == "whip_negotiation" and division.get("confidence_vote"):
+        return False
     stats = p.setdefault("stats", {})
     standing = p.setdefault("faction_standing", {})
     standing.setdefault("party_leadership", 50)
@@ -920,19 +936,36 @@ def _cast_vote(p, choice):
         discipline["total_rebellions"] = int(discipline.get("total_rebellions", 0)) + 1
         discipline["consecutive_rebellions"] = int(discipline.get("consecutive_rebellions", 0)) + 1
         discipline["loyalty_streak"] = 0
+        confidence_vote = bool(division.get("confidence_vote"))
         if choice == "Abstain":
-            penalty = {1: -2, 2: -4, 3: -5}.get(effective_strength, -2)
+            penalty = -10 if confidence_vote else {1: -2, 2: -4, 3: -5}.get(effective_strength, -2)
             add("integrity", 1)
-            add("public_profile", 1)
-            sanction_parts = ["Abstaining against an active whip was recorded as dissent."]
+            add("public_profile", 2 if confidence_vote else 1)
+            if confidence_vote:
+                add("parliamentary_influence", -5)
+                sanction_parts = ["Abstaining on the Government Budget was treated as a major breach of party discipline."]
+            else:
+                sanction_parts = ["Abstaining against an active whip was recorded as dissent."]
         else:
-            penalty = {1: -4, 2: -6, 3: -8}.get(effective_strength, -4)
+            penalty = -16 if confidence_vote else {1: -4, 2: -6, 3: -8}.get(effective_strength, -4)
             add("integrity", 2)
-            add("public_profile", 2 + effective_strength)
-            add("parliamentary_influence", 2)
+            add("public_profile", 5 if confidence_vote else 2 + effective_strength)
+            add("parliamentary_influence", -8 if confidence_vote else 2)
             sanction_parts = [
+                "Rebellion against the Government Budget's confidence-level three-line whip recorded."
+                if confidence_vote else
                 f"Rebellion against a {WHIP_STRENGTH_LABELS.get(effective_strength, 'party')} recorded."
             ]
+        if confidence_vote:
+            sanction_parts.append(
+                "The Budget is modelled as a confidence-level vote: party trust −16 and parliamentary influence −8."
+                if choice != "Abstain" else
+                "The Budget is modelled as a confidence-level vote: party trust −10 and parliamentary influence −5."
+            )
+            p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
+            p["faction_standing"]["party_leadership"] = _clip(
+                p["faction_standing"]["party_leadership"] - 8
+            )
         if discipline["consecutive_rebellions"] >= 2:
             penalty -= 2
             discipline["warnings"] = int(discipline.get("warnings", 0)) + 1
@@ -2490,7 +2523,7 @@ def render():
                 args=(option,),
             )
     calendar_year = 2027 + (int(p.get("career_term", 1)) - 1) * ELECTION_AFTER + int(p.get("career_year", 1)) - 1
-    season_names = ("SPR", "SUM", "BUD")
+    season_names = ("SPR", "SUM", "AUT")
     current_step = (int(p.get("career_year", 1)) - 1) * SESSIONS_PER_YEAR + int(p.get("career_session", 1)) - 1
     timeline_tiles = []
     for year_offset in range(ELECTION_AFTER):
@@ -2503,8 +2536,6 @@ def render():
             elif tile_index == current_step and not p.get("game_over"):
                 classes.append("current")
             tile_label = season
-            if season == "BUD":
-                tile_label += " £"
             timeline_tiles.append(
                 f"<div class='{' '.join(classes)}'><small>{tile_label}</small><strong>{display_year}</strong></div>"
             )
@@ -2670,6 +2701,12 @@ def render():
                 st.markdown("<div class='mp-overline'>COMMONS DIVISION · WHIP CHECK</div>", unsafe_allow_html=True)
                 st.markdown(f"### {division['title']}")
                 st.write(division["description"])
+                if division.get("confidence_vote"):
+                    st.error(
+                        "GOVERNMENT BUDGET · CONFIDENCE-LEVEL VOTE. "
+                        "The simulation treats this as a strict three-line whip: rebelling can cause major party-trust, "
+                        "leadership-confidence and parliamentary-influence penalties."
+                    )
                 whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
                 st.markdown(whip_label)
                 whip_strength = _whip_strength(division, p.get("party", "Labour"))
@@ -2721,7 +2758,7 @@ def render():
                                 "cross_party_amendment": "Build cross-party support for an amendment",
                             }
                             tactic_options = ["cross_party_amendment"]
-                            if whip != "Free vote":
+                            if whip != "Free vote" and not division.get("confidence_vote"):
                                 tactic_options.insert(0, "whip_negotiation")
                             selected_tactic = st.selectbox(
                                 "Tactic to prepare",
