@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from content_store import load_json
+from content_store import load_json, load_press_stories
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 ISSUES = {
@@ -14,11 +14,7 @@ ISSUES = {
  "Jobs and growth": ["High-street vacancies", "Skills and apprenticeships", "Small-business costs"],
  "Environment": ["Flood protection", "Clean energy infrastructure", "Nature and green space"],
 }
-LEAKS = [
- ("Rival minister's transport timetable collapses", "A private briefing suggests the department underestimated delays.", 5, .28),
- ("Internal polling shows a wobble in key marginals", "A party memo hints that several target seats are moving.", 6, .36),
- ("A policy launch was rewritten overnight", "Colleagues are arguing over who watered down a flagship promise.", 4, .22),
-]
+LEAKS = [(x['title'], x['detail'], x['boost'], x['risk']) for x in load_press_stories()]
 DEPARTMENTS = ["Transport Secretary", "Chancellor", "Health Secretary", "Housing Secretary", "Environment Secretary"]
 
 def clamp(v, lo=0, hi=100): return max(lo, min(hi, int(round(v))))
