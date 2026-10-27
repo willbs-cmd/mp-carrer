@@ -942,7 +942,8 @@ def _cast_vote(p, choice):
                 p["faction_standing"]["party_leadership"] - 4
             )
         if effective_strength == 3:
-            discipline["warnings"] = int(discipline.get("warnings", 0)) + 1
+            if discipline["consecutive_rebellions"] < 2:
+                discipline["warnings"] = int(discipline.get("warnings", 0)) + 1
             sanction_parts.append("A three-line whip means the Chief Whip is likely to review your conduct.")
             p.setdefault("faction_standing", {}).setdefault("party_leadership", 50)
             p["faction_standing"]["party_leadership"] = _clip(
