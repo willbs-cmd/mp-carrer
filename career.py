@@ -1621,6 +1621,26 @@ def _accept_promotion(p, role_id, spec):
     st.rerun()
 
 
+def _project_national_seats(polls, baseline):
+    """Convert game-only polling movement into a rough, always-650-seat projection."""
+    projected_raw = {}
+    for candidate, seats in SIMULATED_PARTY_SEATS.items():
+        share_change = float(polls.get(candidate, 0)) - float(baseline.get(candidate, polls.get(candidate, 0)))
+        projected_raw[candidate] = max(0.0, float(seats) + share_change * 5.0)
+    for candidate in polls:
+        if candidate not in projected_raw:
+            projected_raw[candidate] = max(0.0, float(polls[candidate]) * 0.2)
+    projected_total = sum(projected_raw.values()) or 650.0
+    projected_seats = {
+        candidate: int(round(value / projected_total * 650))
+        for candidate, value in projected_raw.items()
+    }
+    residue = 650 - sum(projected_seats.values())
+    if projected_seats and residue:
+        projected_seats[max(projected_seats, key=projected_seats.get)] += residue
+    return projected_seats
+
+
 def _hold_election(p):
     """Resolve a general election using constituency margin, national swing and a seat projection."""
     stats = p["stats"]
@@ -1653,18 +1673,7 @@ def _hold_election(p):
     margin = round(starting_margin + local_effect + campaign_effect + reputation_effect + trust_effect + polling_effect + manifesto_effect + difficulty_effect + random_swing, 1)
     won = margin > 0
 
-    projected_raw = {}
-    for candidate, seats in SIMULATED_PARTY_SEATS.items():
-        share_change = float(polls.get(candidate, 0)) - float(baseline.get(candidate, polls.get(candidate, 0)))
-        projected_raw[candidate] = max(0.0, float(seats) + share_change * 5.0)
-    for candidate in polls:
-        if candidate not in projected_raw:
-            projected_raw[candidate] = max(0.0, float(polls[candidate]) * 0.2)
-    projected_total = sum(projected_raw.values()) or 650.0
-    projected_seats = {candidate: int(round(value / projected_total * 650)) for candidate, value in projected_raw.items()}
-    residue = 650 - sum(projected_seats.values())
-    if projected_seats and residue:
-        projected_seats[max(projected_seats, key=projected_seats.get)] += residue
+    projected_seats = _project_national_seats(polls, baseline)
     projected_leader = max(projected_seats, key=projected_seats.get) if projected_seats else party
     projected_party_seats = int(projected_seats.get(party, 0))
     projected_majority = projected_party_seats >= 326
@@ -1922,6 +1931,32 @@ def _render_polling_tab(p):
         max(0, (ELECTION_AFTER - int(p.get("career_year", 1))) * SESSIONS_PER_YEAR
             + SESSIONS_PER_YEAR - int(p.get("career_session", 1))),
     )
+
+    projected_seats_now = _project_national_seats(polls, baseline)
+    projected_rows = sorted(projected_seats_now.items(), key=lambda item: item[1], reverse=True)
+    projected_leader_now = projected_rows[0][0] if projected_rows else party
+    player_projected_seats = int(projected_seats_now.get(party, 0))
+    st.markdown("### Live fictional Commons seat projection")
+    st.caption(
+        "This game-only estimate responds to polling changes immediately. It is separate from the dated real-world Parliament snapshot and is not a forecast."
+    )
+    seat_metrics = st.columns(3, gap="medium")
+    seat_metrics[0].metric(f"{party} projected seats", f"{player_projected_seats:,}")
+    seat_metrics[1].metric("Projected largest party", projected_leader_now)
+    seat_metrics[2].metric("Projected majority", "Yes" if player_projected_seats >= 326 else "No / hung Parliament")
+    projected_seat_frame = pd.DataFrame(projected_rows, columns=["Party", "Projected seats"])
+    projected_seat_chart = px.bar(
+        projected_seat_frame.head(10), x="Projected seats", y="Party", color="Party",
+        orientation="h", color_discrete_map=PARTY_COLOURS,
+    )
+    projected_seat_chart.update_layout(
+        height=350, showlegend=False, margin=dict(l=8, r=20, t=8, b=8),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#263243", size=11),
+        xaxis=dict(title="Projected seats (650-seat Commons)", gridcolor="#e1e7ee"),
+        yaxis=dict(title="", categoryorder="total ascending"),
+    )
+    st.plotly_chart(projected_seat_chart, use_container_width=True, config={"displayModeBar": False, "responsive": True})
 
     left, right = st.columns([1.15, 1], gap="large")
     with left:
