@@ -2304,6 +2304,17 @@ def _render_parliament_tab(p=None):
 
     election_record = p.get("election_result") or {}
     projected_seats = election_record.get("projected_seats") if isinstance(election_record, dict) else None
+    if election_record and not (isinstance(projected_seats, dict) and projected_seats):
+        # Older saved careers can have an election result from before seat projections existed.
+        # Rebuild a readable game-only result without overwriting the historical official snapshot.
+        saved_polls = election_record.get("polling_snapshot") or p.get("voting_intention") or {}
+        projected_seats = _project_national_seats(saved_polls, POLLING_BASELINE)
+        if projected_seats:
+            election_record = dict(election_record)
+            election_record["projected_seats"] = projected_seats
+            election_record["projected_leader"] = max(projected_seats, key=projected_seats.get)
+            election_record["projected_party_seats"] = int(projected_seats.get(p.get("party", "Labour"), 0))
+            election_record["projected_majority"] = election_record["projected_party_seats"] >= 326
     if isinstance(projected_seats, dict) and projected_seats:
         st.markdown("## Your simulated Parliament after the general election")
         st.caption(
