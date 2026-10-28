@@ -10,7 +10,7 @@ import streamlit as st
 import career
 import saves
 
-ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent
 DEFAULT_SEED = saves.DEFAULT_SEED
 
 st.set_page_config(
