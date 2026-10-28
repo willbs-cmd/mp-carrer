@@ -134,6 +134,24 @@ POLLING_ACTIONS = [
         "poll_shift": 0.6,
         "effects": {"integrity": 2, "policy_expertise": 1, "campaign_readiness": 3},
     },
+    {
+        "id": "poll_target_seat_operation", "label": "Organise a target-seat operation",
+        "description": "Coordinate volunteers, canvassing and local organisers across competitive constituencies. It takes capacity away from other priorities.",
+        "poll_shift": 0.9,
+        "effects": {"campaign_readiness": 6, "public_profile": 2, "constituency_support": 1},
+    },
+    {
+        "id": "poll_costed_manifesto", "label": "Publish a costed manifesto offer",
+        "description": "Set out how a flagship pledge would be funded and what delivery would look like. Detail wins credibility but can expose disagreements inside the party.",
+        "poll_shift": 0.7,
+        "effects": {"policy_expertise": 2, "party_trust": 2, "campaign_readiness": 3},
+    },
+    {
+        "id": "poll_recover_interview", "label": "Reset the campaign after a difficult interview",
+        "description": "Put forward a clear follow-up statement and answer questions from voters rather than allowing one awkward moment to dominate the campaign.",
+        "poll_shift": 0.4,
+        "effects": {"public_profile": 3, "integrity": 1, "campaign_readiness": 2},
+    },
 ]
 
 MANIFESTO_PLEDGES = {
