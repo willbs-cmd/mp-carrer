@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification. The game party selector also includes Your Party, Restore Britain and Traditional Unionist Voice, which appear in the UK Parliament's current state-of-parties list as of 26 October 2026. An annual Budget and Supply vote is scripted into Spring or Autumn sessions (alternating by career year) and uses a strict three-line confidence whip in the fictional game.",
+  "source_note": "These are fictionalized game divisions, not records of actual historical votes or official current party positions. Whip positions are simulation rules for gameplay. Revisit them when balancing the game. Northern Ireland parties and independents have a default free vote in divisions unless a fictional game whip is explicitly set; this is a gameplay simplification. The game party selector also includes Your Party, Restore Britain and Traditional Unionist Voice, which appear in the UK Parliament's current state-of-parties list as of 26 October 2026. An annual Budget and Supply vote is scripted into Spring or Autumn sessions (alternating by career year) and uses a strict three-line confidence whip in the fictional game. Division outcomes use fictional attendance and whip-loyalty rates; Budget is a three-line confidence vote.",
   "mandates": {
     "public_services": {
       "label": "Protect public services",
@@ -64,7 +64,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "school_meals",
@@ -80,7 +81,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "service_efficiencies",
@@ -96,7 +98,8 @@
         "Green Party": "No",
         "SNP": "No",
         "Plaid Cymru": "No"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "rent_protection",
@@ -112,7 +115,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "energy_support",
@@ -128,7 +132,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "benefit_uprating",
@@ -144,7 +149,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "bus_network",
@@ -160,7 +166,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "road_programme",
@@ -176,7 +183,8 @@
         "Green Party": "No",
         "SNP": "No",
         "Plaid Cymru": "No"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "renewables",
@@ -192,7 +200,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "business_rates",
@@ -208,7 +217,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "apprenticeships",
@@ -224,7 +234,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "regional_investment",
@@ -240,7 +251,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "police_funding",
@@ -256,7 +268,8 @@
         "Green Party": "No",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "border_processing",
@@ -272,7 +285,8 @@
         "Green Party": "No",
         "SNP": "No",
         "Plaid Cymru": "No"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "carbon_levy",
@@ -288,7 +302,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "fiscal_rule",
@@ -304,7 +319,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "pension_freeze",
@@ -320,7 +336,8 @@
         "Green Party": "No",
         "SNP": "No",
         "Plaid Cymru": "No"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "defence_spending",
@@ -336,7 +353,8 @@
         "Green Party": "No",
         "SNP": "Aye",
         "Plaid Cymru": "No"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "transparency",
@@ -352,7 +370,8 @@
         "Green Party": "Aye",
         "SNP": "Aye",
         "Plaid Cymru": "Aye"
-      }
+      },
+      "whip_strength": 2
     },
     {
       "id": "assisted_dying",
@@ -368,7 +387,8 @@
         "Green Party": "Free vote",
         "SNP": "Free vote",
         "Plaid Cymru": "Free vote"
-      }
+      },
+      "whip_strength": 1
     },
     {
       "id": "annual_budget",
