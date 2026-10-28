@@ -1,5 +1,0 @@
-streamlit>=1.40
-pandas
-altair
-plotly>=5.24
-requests>=2.31
