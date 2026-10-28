@@ -2019,7 +2019,12 @@ def _render_polling_tab(p):
     is_election_year = int(p.get("career_year", 1)) >= ELECTION_AFTER
     senior_role = p.get("role") in {"prime_minister", "chancellor", "secretary_state", "minister_of_state"}
     election_campaign_open = is_election_year or senior_role
-    available_actions = POLLING_ACTIONS if election_campaign_open else MP_POLLING_ACTIONS
+    action_pool = POLLING_ACTIONS if election_campaign_open else MP_POLLING_ACTIONS
+    session_key = _session_key(p)
+    sample_seed = int(st.session_state.get("seed", 12345)) + sum(
+        (index + 1) * ord(char) for index, char in enumerate(f"{p.get('name', 'MP')}|{session_key}|campaign")
+    )
+    available_actions = random.Random(sample_seed).sample(action_pool, k=min(3, len(action_pool)))
 
     st.markdown("### " + ("General-election campaign actions" if is_election_year else "Constituency and parliamentary actions"))
     if is_election_year:
@@ -2069,6 +2074,27 @@ MP_POLLING_ACTIONS = [
         "description": "Raise a local issue in a question, debate or committee session. It can attract attention but may unsettle colleagues.",
         "poll_shift": 0.15,
         "effects": {"policy_expertise": 2, "parliamentary_influence": 2, "public_profile": 2},
+    },
+    {
+        "id": "mp_local_radio",
+        "label": "Give a local radio interview",
+        "description": "Explain your work on a local issue. A clear answer can raise your profile, while a clumsy answer may not cut through nationally.",
+        "poll_shift": 0.15,
+        "effects": {"public_profile": 3, "constituency_support": 1, "party_trust": -1},
+    },
+    {
+        "id": "mp_community_partners",
+        "label": "Convene community partners",
+        "description": "Bring a council, local service and community representatives together around one persistent problem.",
+        "poll_shift": 0.20,
+        "effects": {"constituency_support": 2, "integrity": 1, "policy_expertise": 2},
+    },
+    {
+        "id": "mp_constituency_newsletter",
+        "label": "Publish a constituency report",
+        "description": "Explain your voting record, the cases you have raised and what still needs to change. Transparency helps residents judge your work.",
+        "poll_shift": 0.10,
+        "effects": {"constituency_support": 2, "integrity": 2, "public_profile": 1},
     },
 ]
 
