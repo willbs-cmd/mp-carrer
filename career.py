@@ -1981,12 +1981,22 @@ def _render_polling_tab(p):
         st.write("Campaign actions, party trust, public profile, integrity and campaign readiness gently affect your party's share. Random shocks move every party.")
         st.caption("These effects are exaggerated game rules, not polling science.")
 
-    st.markdown("### Player campaign actions")
-    st.caption("Each activity uses one career-action slot and can change fictional voting intention immediately.")
+    is_election_year = int(p.get("career_year", 1)) >= ELECTION_AFTER
+    senior_role = p.get("role") in {"prime_minister", "chancellor", "secretary_state", "minister_of_state"}
+    election_campaign_open = is_election_year or senior_role
+    available_actions = POLLING_ACTIONS if election_campaign_open else MP_POLLING_ACTIONS
+
+    st.markdown("### " + ("General-election campaign actions" if is_election_year else "Constituency and parliamentary actions"))
+    if is_election_year:
+        st.caption("Election year: national campaign actions are available. Choices spend a career-action slot and can shift the fictional poll and your seat margin.")
+    elif senior_role:
+        st.caption("As a senior government figure, you can use national campaign actions between elections. These are fictional game mechanics.")
+    else:
+        st.caption("As a backbench MP, focus on constituency casework, local campaigning and parliamentary interventions. National campaign events unlock in election year.")
     used = _current_actions(p)
     remaining = max(0, ACTIONS_PER_SESSION - len(used))
-    action_cols = st.columns(len(POLLING_ACTIONS), gap="medium")
-    for col, action in zip(action_cols, POLLING_ACTIONS):
+    action_cols = st.columns(len(available_actions), gap="medium")
+    for col, action in zip(action_cols, available_actions):
         with col:
             with st.container(border=True):
                 st.markdown(f"**{action['label']}**")
@@ -2000,8 +2010,32 @@ def _render_polling_tab(p):
                     use_container_width=True,
                 ):
                     _take_polling_action(p, action)
-    st.caption("Actions share your two-slot budget with constituency work, policy work, networking and media decisions.")
+    st.caption("Actions share your two-slot budget with constituency work, policy work, networking and media decisions. Choose different actions across sessions: their local benefits, national polling nudges and opportunity costs differ.")
 
+
+MP_POLLING_ACTIONS = [
+    {
+        "id": "mp_constituency_surgery",
+        "label": "Run a constituency listening surgery",
+        "description": "Meet residents, identify a recurring local problem and publish what you will follow up. This is ordinary MP casework, not a national campaign event.",
+        "poll_shift": 0.25,
+        "effects": {"constituency_support": 4, "campaign_readiness": 2, "integrity": 1},
+    },
+    {
+        "id": "mp_local_campaign",
+        "label": "Build a local volunteer team",
+        "description": "Recruit volunteers and coordinate a neighbourhood campaign around your constituency priority.",
+        "poll_shift": 0.20,
+        "effects": {"constituency_support": 3, "campaign_readiness": 3, "public_profile": 1},
+    },
+    {
+        "id": "mp_parliamentary_intervention",
+        "label": "Make a targeted parliamentary intervention",
+        "description": "Raise a local issue in a question, debate or committee session. It can attract attention but may unsettle colleagues.",
+        "poll_shift": 0.15,
+        "effects": {"policy_expertise": 2, "parliamentary_influence": 2, "public_profile": 2},
+    },
+]
 
 def _normalise_seat_name(name):
     """Normalise constituency names for safe matching between official datasets."""
@@ -2159,8 +2193,10 @@ def _bar_chart(frame, category, value, height):
     return chart
 
 
-def _render_parliament_tab():
-    """Show the Commons and Lords composition plus a live, interactive seat map."""
+def _render_parliament_tab(p=None):
+    """Show the dated official Parliament snapshot and the player's separate game election projection."""
+    if p is None:
+        p = st.session_state.get("career_profile") or {}
     commons_rows = PARLIAMENT_COMPOSITION["commons"]["seats"]
     lords_rows = PARLIAMENT_COMPOSITION["lords"]["seats"]
     commons_total = int(PARLIAMENT_COMPOSITION["commons"]["total_seats"])
@@ -2186,6 +2222,35 @@ def _render_parliament_tab():
     leading_party = commons_df.sort_values("Seats", ascending=False).iloc[0]
     top[2].metric("Largest Commons party", f"{leading_party['Party']} · {int(leading_party['Seats']):,}")
     top[3].metric("Eligible Lords members", f"{lords_total:,}")
+
+    election_record = p.get("election_result") or {}
+    projected_seats = election_record.get("projected_seats") if isinstance(election_record, dict) else None
+    if isinstance(projected_seats, dict) and projected_seats:
+        st.markdown("## Your simulated Parliament after the general election")
+        st.caption(
+            "These are the game's election results, not real UK Parliament figures. "
+            "Your election can change this projection; the dated official snapshot below remains a real-world reference."
+        )
+        projected_df = pd.DataFrame(
+            [{"Party": str(name), "Seats": int(seats)} for name, seats in projected_seats.items()]
+        ).sort_values("Seats", ascending=False)
+        projected_df = projected_df[projected_df["Seats"] > 0]
+        projected_cols = st.columns(3, gap="medium")
+        projected_party = str(p.get("party", "Your party"))
+        projected_party_seats = int(election_record.get("projected_party_seats", dict(projected_seats).get(projected_party, 0)))
+        projected_leader = str(election_record.get("projected_leader", projected_df.iloc[0]["Party"] if not projected_df.empty else "Not recorded"))
+        projected_cols[0].metric("Your party's projected seats", f"{projected_party_seats:,}")
+        projected_cols[1].metric("Projected largest party", projected_leader)
+        projected_cols[2].metric("Projected majority", "Yes" if election_record.get("projected_majority") else "No / hung Parliament")
+        projected_chart = _bar_chart(
+            projected_df.rename(columns={"Party": "Party", "Seats": "Seats"}),
+            "Party", "Seats", max(360, min(560, 24 * len(projected_df) + 130))
+        )
+        st.plotly_chart(projected_chart, use_container_width=True, config={"displayModeBar": False, "responsive": True})
+        with st.expander("View your simulated Commons seat totals", expanded=False):
+            st.dataframe(projected_df, hide_index=True, use_container_width=True)
+    else:
+        st.info("Your fictional post-election Commons projection will appear here after your first general election.")
 
     commons_col, lords_col = st.columns(2, gap="large")
     with commons_col:
@@ -3216,7 +3281,7 @@ def render():
     _render_help(p)
     _render_next_steps(p, ctx)
     if active_tab == "Parliament":
-        _render_parliament_tab()
+        _render_parliament_tab(p)
     elif active_tab == "Polling":
         _render_polling_tab(p)
     else:
