@@ -426,7 +426,9 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "integrity": 78,
         "campaign_readiness": 30,
     }
-    ambition_spec = DATA["ambitions"].get(ambition, DATA["ambitions"]["policy_specialist"])
+    electoral_seed = 73129 + sum((index + 1) * ord(char) for index, char in enumerate(f"{constituency}|{party}|{name}")) + int(st.session_state.get("seed", 12345))
+    starting_majority = round(random.Random(electoral_seed).uniform(3.0, 14.0), 1)
+        ambition_spec = DATA["ambitions"].get(ambition, DATA["ambitions"]["policy_specialist"])
     for key, value in ambition_spec["effects"].items():
         stats[key] = _clip(stats.get(key, 0) + value)
     return {
@@ -436,6 +438,9 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "constituency_code": record["code"],
         "constituency_nation": record["nation"],
         "local_mandate": local_mandate,
+        "starting_seat_margin": starting_majority,
+        "polling_baseline": None,
+        "government_status": "opposition",
         "ambition": ambition if ambition in DATA["ambitions"] else "policy_specialist",
         "role": "mp",
         "stats": stats,
@@ -674,18 +679,13 @@ def _division_for(p):
 
 
 def _simulate_division_result(p, division, choice):
-    """Simulate a Commons division using the full 650-seat party make-up."""
-    ayes = 0
-    noes = 0
-    abstentions = 0
+    """Simulate a Commons division with attendance, whip loyalty and a pivotal player vote."""
+    seed = int(st.session_state.get("seed", 12345))
+    session_mix = sum((index + 1) * ord(char) for index, char in enumerate(f"{_session_key(p)}|{division.get('id', '')}"))
+    rng = random.Random(seed + session_mix)
+    ayes = noes = abstentions = non_voting = 0
     player_party = p.get("party", "Labour")
-    non_voting = 0
-
     seat_counts = dict(SIMULATED_PARTY_SEATS)
-    # The player is the MP occupying one of the 650 seats. Replace one member
-    # of the player's party with the player's vote. If the selected party has
-    # no member in the dated snapshot, the new fictional MP replaces one seat
-    # from the largest voting bloc so the House still has exactly 650 seats.
     if int(seat_counts.get(player_party, 0)) <= 0:
         replacement_party = max(
             (name for name in seat_counts if name not in SIMULATED_NON_VOTING_PARTIES and name != "Speaker"),
@@ -694,28 +694,30 @@ def _simulate_division_result(p, division, choice):
         seat_counts[replacement_party] = max(0, int(seat_counts[replacement_party]) - 1)
         seat_counts[player_party] = 1
 
-    for party, seats in seat_counts.items():
-        party_seats = int(seats)
-        # The Speaker does not vote and Sinn Féin's MPs are shown as non-sitting
-        # in the official Commons party list. In this simplified game, those
-        # seats are non-voting unless the player is explicitly playing an SF MP.
-        absent = party_seats if party == "Speaker" else (party_seats if party == "Sinn Féin" else 0)
-        if party == player_party and party in SIMULATED_NON_VOTING_PARTIES:
-            absent = max(0, absent - 1)
-        non_voting += absent
-        bloc_weight = max(0, party_seats - absent)
-        if party == player_party:
-            bloc_weight = max(0, bloc_weight - 1)
-
-        whip = division.get("whip", {}).get(party, "Free vote")
-        if whip == "Aye":
-            ayes += bloc_weight
-        elif whip == "No":
-            noes += bloc_weight
-        else:
-            # Free votes split as evenly as possible in this simplified model.
-            ayes += bloc_weight // 2
-            noes += bloc_weight - (bloc_weight // 2)
+    strength = int(division.get("whip_strength", 1) or 1)
+    loyalty = {1: 0.90, 2: 0.96, 3: 0.99}.get(strength, 0.90)
+    attendance = {1: 0.94, 2: 0.96, 3: 0.97}.get(strength, 0.94)
+    for party_name, seats in seat_counts.items():
+        party_seats = max(0, int(seats))
+        if party_name == "Speaker" or (party_name == "Sinn Féin" and player_party != "Sinn Féin"):
+            non_voting += party_seats
+            abstentions += party_seats
+            continue
+        bloc_weight = party_seats - (1 if party_name == player_party else 0)
+        whip = division.get("whip", {}).get(party_name, "Free vote")
+        for _ in range(max(0, bloc_weight)):
+            if rng.random() > attendance:
+                non_voting += 1
+                abstentions += 1
+                continue
+            if whip in ("Aye", "No"):
+                member_vote = whip if rng.random() < loyalty else ("No" if whip == "Aye" else "Aye")
+            else:
+                member_vote = "Aye" if rng.random() < 0.5 else "No"
+            if member_vote == "Aye":
+                ayes += 1
+            else:
+                noes += 1
 
     if choice == "Aye":
         ayes += 1
@@ -724,159 +726,15 @@ def _simulate_division_result(p, division, choice):
     else:
         abstentions += 1
 
-    abstentions += non_voting
-    result = "Passed" if ayes > noes else "Rejected"
     return {
-        "ayes": int(ayes),
-        "noes": int(noes),
-        "abstentions": int(abstentions),
-        "non_voting": int(non_voting),
-        "total_seats": int(SIMULATED_TOTAL_SEATS),
+        "ayes": int(ayes), "noes": int(noes), "abstentions": int(abstentions),
+        "non_voting": int(non_voting), "total_seats": int(sum(seat_counts.values())),
         "votes_cast": int(ayes + noes),
-        "result": result,
+        "result": "Passed" if ayes > noes else "Rejected",
         "majority": int(abs(ayes - noes)),
+        "whip_strength": strength,
+        "attendance_rate": round((ayes + noes) / max(1, sum(seat_counts.values()) - non_voting) * 100, 1),
     }
-
-
-def _whip_strength(division, party):
-    """Return the fictional whip severity for this division (0 free, 1–3 line whip)."""
-    if division.get("whip", {}).get(party, "Free vote") == "Free vote":
-        return 0
-    raw = division.get("whip_strength")
-    if isinstance(raw, str):
-        named = {
-            "free": 0, "free vote": 0,
-            "one-line": 1, "one line": 1, "1": 1,
-            "two-line": 2, "two line": 2, "2": 2,
-            "three-line": 3, "three line": 3, "3": 3,
-        }
-        parsed = named.get(raw.strip().lower())
-        if parsed is not None:
-            return parsed
-    elif raw is not None:
-        try:
-            return max(0, min(3, int(raw)))
-        except (TypeError, ValueError):
-            pass
-    title = str(division.get("title", "")).lower()
-    priority = division.get("priority")
-    if priority == "tax_and_spending" or any(
-        phrase in title for phrase in ("confidence", "supply bill", "budget", "appropriation")
-    ):
-        return 3
-    if priority in {"public_services", "cost_living"}:
-        return 2
-    return 1
-
-
-WHIP_STRENGTH_LABELS = {
-    0: "Free vote",
-    1: "One-line whip",
-    2: "Two-line whip",
-    3: "Three-line whip",
-}
-
-
-def _ensure_party_discipline(p):
-    """Add persistent party-discipline tracking while keeping old saves compatible."""
-    state = p.setdefault("party_discipline", {})
-    defaults = {
-        "total_rebellions": 0,
-        "consecutive_rebellions": 0,
-        "loyalty_streak": 0,
-        "warnings": 0,
-        "last_sanction": "No disciplinary warning recorded.",
-        "history": [],
-    }
-    for key, value in defaults.items():
-        state.setdefault(key, value)
-    if not isinstance(state.get("history"), list):
-        state["history"] = []
-    p.setdefault("division_strategies", {})
-    p.setdefault("faction_standing", {
-        "party_leadership": 50, "backbenchers": 50, "local_party": 50, "cross_party": 35
-    })
-    return state
-
-
-def _prepare_division_tactic(p, tactic):
-    """Spend one action to negotiate with the Whips or build support for an amendment."""
-    if tactic not in {"whip_negotiation", "cross_party_amendment"}:
-        return False
-    key = _session_key(p)
-    used = _current_actions(p)
-    if len(used) >= ACTIONS_PER_SESSION or "division_tactic" in used:
-        return False
-    strategies = p.setdefault("division_strategies", {})
-    if key in strategies:
-        return False
-
-    division = _division_for(p)
-    party_name = p.get("party", "Labour")
-    published_whip = division.get("whip", {}).get(party_name, "Free vote")
-    strength = _whip_strength(division, party_name)
-    if tactic == "whip_negotiation" and division.get("confidence_vote"):
-        return False
-    stats = p.setdefault("stats", {})
-    standing = p.setdefault("faction_standing", {})
-    standing.setdefault("party_leadership", 50)
-    standing.setdefault("cross_party", 35)
-
-    seed = int(st.session_state.get("seed", 32458))
-    session_mix = sum(ord(char) for char in f"{p.get('name', 'MP')}:{key}:{tactic}:{division['id']}")
-    rng = random.Random(seed + session_mix)
-
-    if tactic == "whip_negotiation":
-        if published_whip == "Free vote":
-            return False
-        score = 0.58 * float(stats.get("party_trust", 48)) + 0.42 * float(stats.get("parliamentary_influence", 24))
-        chance = max(0.08, min(0.88, 0.20 + score / 150 - max(0, strength - 1) * 0.12))
-        accepted = rng.random() < chance
-        if accepted:
-            summary = "The Whips accepted your case for a free vote on this division."
-            effects = {"party_trust": 2, "parliamentary_influence": 1}
-            standing["party_leadership"] = _clip(standing["party_leadership"] + 2)
-            override = "Free vote"
-        else:
-            summary = "The Whips rejected your request and reminded you of the party position."
-            effects = {"party_trust": -1}
-            override = None
-        strategy = {
-            "type": tactic, "label": "Negotiated with the Whips",
-            "accepted": accepted, "summary": summary, "whip_override": override,
-            "published_whip": published_whip, "prepared_session": key,
-        }
-    else:
-        expertise = float(stats.get("policy_expertise", 30))
-        influence = float(stats.get("parliamentary_influence", 24))
-        cross_party = float(standing.get("cross_party", 35))
-        score = 0.42 * expertise + 0.33 * influence + 0.25 * cross_party
-        chance = max(0.10, min(0.86, 0.20 + score / 150 - max(0, strength - 1) * 0.08))
-        accepted = rng.random() < chance
-        if accepted:
-            summary = "Colleagues accepted a compromise amendment. It will strengthen the legislative case and soften the local trade-off."
-            effects = {"policy_expertise": 2, "parliamentary_influence": 2}
-            standing["cross_party"] = _clip(cross_party + 4)
-        else:
-            summary = "The amendment failed to attract enough support. You gained useful scrutiny experience, but the party line remains unchanged."
-            effects = {"policy_expertise": 1, "party_trust": -1}
-        strategy = {
-            "type": tactic, "label": "Cross-party amendment",
-            "accepted": accepted, "summary": summary,
-            "whip_override": None, "published_whip": published_whip,
-            "prepared_session": key,
-        }
-
-    used.append("division_tactic")
-    strategies[key] = strategy
-    _apply_effects(p, effects)
-    effect_summary = _effect_summary(effects)
-    narrative = summary + (f" Effects: {effect_summary}." if effect_summary else "")
-    _record(p, strategy["label"], narrative)
-    p["last_event"] = narrative
-    st.session_state.career_profile = p
-    return True
-
 
 def _cast_vote(p, choice):
     """Record a Commons vote and apply a graduated, persistent discipline model."""
@@ -991,6 +849,13 @@ def _cast_vote(p, choice):
         add("party_trust", penalty)
         sanction = " ".join(sanction_parts)
         discipline["last_sanction"] = sanction
+
+    if division.get("confidence_vote") and division_result.get("result") == "Rejected":
+        add("party_trust", -8)
+        add("public_profile", -4)
+        p["government_status"] = "confidence_crisis"
+        if p.get("role") == "prime_minister":
+            p["confidence_crises"] = int(p.get("confidence_crises", 0)) + 1
 
     mandate_match = division.get("priority") == p.get("local_mandate")
     local_preference = division.get("local_preference", "Free vote")
@@ -1780,65 +1645,99 @@ def _accept_promotion(p, role_id, spec):
 
 
 def _hold_election(p):
+    """Resolve a general election using constituency margin, national swing and a seat projection."""
     stats = p["stats"]
     seed = int(st.session_state.get("seed", 12345))
     rng = random.Random(seed + p["career_total_years"] * 911 + p["career_term"] * 503)
-    score = (
-        .35 * stats["constituency_support"]
-        + .15 * stats["party_trust"]
-        + .12 * stats["public_profile"]
-        + .10 * stats["policy_expertise"]
-        + .10 * stats["integrity"]
-        + .08 * stats["parliamentary_influence"]
-        + .10 * stats.get("campaign_readiness", 30)
-    )
     polls = _ensure_polling_state(p)
     party = p.get("party", "Labour")
+    baseline = p.get("polling_baseline")
+    if not isinstance(baseline, dict) or not baseline:
+        baseline = dict(polls)
+        p["polling_baseline"] = dict(baseline)
+
     party_vote_share = float(polls.get(party, 0))
-    polling_leader = max(polls, key=polls.get)
-    polling_effect = max(-3.5, min(3.5, (party_vote_share - 20.0) * 0.12))
-    score = round(score + polling_effect, 1)
+    baseline_party_share = float(baseline.get(party, party_vote_share))
+    rivals = [name for name in polls if name != party]
+    closest_rival = max(rivals, key=lambda name: polls.get(name, 0)) if rivals else "Other parties"
+    national_swing = party_vote_share - baseline_party_share
+    rival_swing = float(polls.get(closest_rival, 0)) - float(baseline.get(closest_rival, polls.get(closest_rival, 0)))
+    relative_swing = national_swing - rival_swing
+
+    starting_margin = float(p.get("starting_seat_margin", 7.0))
+    local_effect = (float(stats.get("constituency_support", 50)) - 50) * 0.22
+    campaign_effect = (float(stats.get("campaign_readiness", 30)) - 30) * 0.12
+    reputation_effect = (float(stats.get("integrity", 50)) - 50) * 0.045
+    trust_effect = (float(stats.get("party_trust", 50)) - 50) * 0.035
+    polling_effect = relative_swing * 0.55
     manifesto_effect, manifesto_results = _score_manifesto_pledges(p)
-    score = round(score + manifesto_effect, 1)
-    margin = round(score + rng.uniform(-8, 8), 1)
-    won = margin >= 45
+    difficulty_effect = {"relaxed": 2.0, "standard": 0.0, "hard": -3.0}.get(p.get("difficulty", DEFAULT_DIFFICULTY), 0.0)
+    random_swing = rng.uniform(-3.5, 3.5)
+    margin = round(starting_margin + local_effect + campaign_effect + reputation_effect + trust_effect + polling_effect + manifesto_effect + difficulty_effect + random_swing, 1)
+    won = margin > 0
+
+    projected_raw = {}
+    for candidate, seats in SIMULATED_PARTY_SEATS.items():
+        share_change = float(polls.get(candidate, 0)) - float(baseline.get(candidate, polls.get(candidate, 0)))
+        projected_raw[candidate] = max(0.0, float(seats) + share_change * 5.0)
+    for candidate in polls:
+        if candidate not in projected_raw:
+            projected_raw[candidate] = max(0.0, float(polls[candidate]) * 0.2)
+    projected_total = sum(projected_raw.values()) or 650.0
+    projected_seats = {candidate: int(round(value / projected_total * 650)) for candidate, value in projected_raw.items()}
+    residue = 650 - sum(projected_seats.values())
+    if projected_seats and residue:
+        projected_seats[max(projected_seats, key=projected_seats.get)] += residue
+    projected_leader = max(projected_seats, key=projected_seats.get) if projected_seats else party
+    projected_party_seats = int(projected_seats.get(party, 0))
+    projected_majority = projected_party_seats >= 326
+    constituency_share = round(max(20.0, min(65.0, 50.0 + margin * 1.8)), 1)
+
     result = {
-        "term": int(p["career_term"]),
-        "score": round(score, 1),
-        "margin": margin,
-        "won": won,
-        "threshold": 45,
-        "campaign_readiness": int(stats.get("campaign_readiness", 30)),
-        "party_vote_share": round(party_vote_share, 1),
-        "polling_leader": polling_leader,
-        "polling_snapshot": dict(polls),
-        "polling_effect": round(polling_effect, 1),
-        "manifesto_effect": manifesto_effect,
-        "manifesto_results": manifesto_results,
+        "term": int(p.get("career_term", 1)), "score": round(starting_margin + local_effect + campaign_effect + reputation_effect + trust_effect + polling_effect + manifesto_effect, 1),
+        "margin": margin, "won": won, "threshold": 0, "starting_margin": round(starting_margin, 1),
+        "local_effect": round(local_effect, 1), "campaign_effect": round(campaign_effect, 1),
+        "party_vote_share": round(party_vote_share, 1), "polling_leader": max(polls, key=polls.get),
+        "polling_snapshot": dict(polls), "polling_effect": round(polling_effect, 1),
+        "relative_national_swing": round(relative_swing, 1), "manifesto_effect": manifesto_effect,
+        "manifesto_results": manifesto_results, "constituency_vote_share": constituency_share,
+        "opponent_vote_share": round(100.0 - constituency_share, 1), "projected_seats": projected_seats,
+        "projected_leader": projected_leader, "projected_party_seats": projected_party_seats,
+        "projected_majority": projected_majority,
     }
     p["election_result"] = result
+    p.setdefault("election_history", []).append(dict(result))
+    p["election_history"] = p["election_history"][-10:]
+
     if won:
         p["seats_won"] = int(p.get("seats_won", 0)) + 1
         p["stats"]["constituency_support"] = _clip(p["stats"]["constituency_support"] + 2)
         p["stats"]["party_trust"] = _clip(p["stats"]["party_trust"] + 1)
-        text = f"Re-elected in {p['constituency']}. Your career continues into a new Parliament."
-        if p["role"] == "prime_minister":
-            opposition_leader_share = max((share for candidate, share in polls.items() if candidate != party), default=0.0)
-            polling_gap = party_vote_share - opposition_leader_share
-            national_mood_effect = max(-5.0, min(5.0, polling_gap * 0.45))
-            government_score = .55 * stats["party_trust"] + .45 * stats["public_profile"] + national_mood_effect + rng.uniform(-12, 12)
-            if government_score < 50:
+        text = f"Re-elected in {p['constituency']} with an estimated {constituency_share:.1f}% local vote and a simulated {margin:+.1f} point margin."
+        if p.get("role") == "prime_minister":
+            if projected_leader != party:
                 p["role"] = "mp"
+                p["government_status"] = "opposition"
                 p["stats"]["party_trust"] = _clip(p["stats"]["party_trust"] - 8)
                 p["stats"]["public_profile"] = _clip(p["stats"]["public_profile"] - 4)
-                text += " Your party has lost power nationally; you return to the backbenches and must rebuild your influence."
-        p["career_term"] = int(p["career_term"]) + 1
+                text += f" Nationally, {projected_leader} leads the fictional seat projection ({projected_seats.get(projected_leader, 0)} seats); your party loses office."
+            elif not projected_majority:
+                p["government_status"] = "minority_government"
+                p["stats"]["party_trust"] = _clip(p["stats"]["party_trust"] - 3)
+                text += f" Your party remains the largest projected party on {projected_party_seats} seats but falls short of a majority."
+            else:
+                p["government_status"] = "majority_government"
+                text += f" Your party is projected to return with a majority of {projected_party_seats - 325} seats."
+        p["career_term"] = int(p.get("career_term", 1)) + 1
         p["career_year"] = 1
         p["career_session"] = 1
+        p["starting_seat_margin"] = round(max(1.0, min(20.0, margin)), 1)
+        p["polling_baseline"] = dict(polls)
         p["last_event"] = text
-        _record(p, "General election · re-elected", text)
+        _record(p, "General election · seat retained", text)
     else:
-        text = f"You lose {p['constituency']} at the general election. Your parliamentary career ends here."
+        text = f"You lose {p['constituency']} at the general election. The simulated local margin was {margin:+.1f} points; national swing, local support and campaign readiness all mattered."
+        p["government_status"] = "out_of_parliament"
         p["game_over"] = True
         p["last_event"] = text
         _record(p, "General election · seat lost", text)
@@ -2595,13 +2494,29 @@ def render():
         election_record = p.get("election_result") or {}
         if election_record:
             st.markdown(
-                f"**Final fictional voting intention:** {html.escape(str(p.get('party', 'Your party')))} {float(election_record.get('party_vote_share', 0)):.1f}% · "
-                f"Polling leader: {html.escape(str(election_record.get('polling_leader', 'Not recorded')))}"
+                f"**Fictional national polling:** {html.escape(str(p.get('party', 'Your party')))} "
+                f"{float(election_record.get('party_vote_share', 0)):.1f}% · "
+                f"National polling leader: {html.escape(str(election_record.get('polling_leader', 'Not recorded')))}"
+            )
+            st.markdown(
+                f"**Constituency result:** {float(election_record.get('constituency_vote_share', 0)):.1f}% estimated vote "
+                f"({float(election_record.get('margin', 0)):+.1f} point margin) · "
+                f"{'Seat retained' if election_record.get('won') else 'Seat lost'}"
             )
             st.caption(
-                f"Polling contribution to your constituency result: {float(election_record.get('polling_effect', 0)):+.1f} points. "
-                "This is an invented game mechanic, not an election prediction."
+                f"Starting majority: {float(election_record.get('starting_margin', 0)):+.1f} points. "
+                f"National swing: {float(election_record.get('relative_national_swing', 0)):+.1f}; "
+                f"local support effect: {float(election_record.get('local_effect', 0)):+.1f}; "
+                f"campaign effect: {float(election_record.get('campaign_effect', 0)):+.1f}. "
+                "All polling and constituency vote shares are fictional game mechanics, not an election forecast."
             )
+            if election_record.get("projected_seats"):
+                leader = election_record.get("projected_leader", "Not recorded")
+                st.markdown(
+                    f"**National seat projection (fictional):** {html.escape(str(leader))} leads with "
+                    f"{int(election_record.get('projected_seats', {}).get(leader, 0))} of 650 seats. "
+                    f"Your party is projected on {int(election_record.get('projected_party_seats', 0))} seats."
+                )
         if election_record.get("manifesto_results"):
             st.markdown("### Manifesto promise report")
             st.caption(f"Promise credibility changed your simulated election score by {int(election_record.get('manifesto_effect', 0)):+d} points.")
