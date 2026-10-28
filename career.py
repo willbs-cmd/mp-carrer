@@ -719,20 +719,34 @@ def _effect_summary(effects):
 
 
 def _division_for(p):
-    """Return one deterministic, persisted division for the current parliamentary session."""
+    """Return one persisted division, reserving Spring or Autumn for the annual Budget vote."""
     key = _session_key(p)
     p.setdefault("division_by_session", {})
+    session = int(p.get("career_session", 1))
+    year = int(p.get("career_year", 1))
+    saved_vote = p.get("votes_by_session", {}).get(key)
+
+    # The Budget storyline happens once per career year, alternating between
+    # Autumn and Spring. Session 2 (Summer) remains available for ordinary divisions.
+    # Never rewrite a vote that has already been cast in an older save.
+    budget_config = DIVISION_BY_ID.get("annual_budget", {})
+    trigger_sessions = budget_config.get("trigger_sessions", [1, 3])
+    budget_session = 3 if year % 2 == 1 else 1
     division_id = p["division_by_session"].get(key)
+    if isinstance(saved_vote, dict):
+        division_id = saved_vote.get("division_id", division_id)
+    elif session == budget_session and session in trigger_sessions and budget_config:
+        division_id = budget_config["id"]
+
     if division_id not in DIVISION_BY_ID:
         seed = int(st.session_state.get("seed", 12345))
         seat_mix = sum((index + 1) * ord(char) for index, char in enumerate(p.get("constituency", "")))
         term = int(p.get("career_term", 1))
-        year = int(p.get("career_year", 1))
-        session = int(p.get("career_session", 1))
         index = (seed + seat_mix + term * 37 + year * 113 + session * 271) % len(DIVISIONS)
         division_id = DIVISIONS[index]["id"]
-        p["division_by_session"][key] = division_id
-        st.session_state.career_profile = p
+
+    p["division_by_session"][key] = division_id
+    st.session_state.career_profile = p
     return DIVISION_BY_ID[division_id]
 
 
@@ -2334,7 +2348,7 @@ def _render_timeline(p, ctx):
     """Term strip and parliamentary timeline."""
     safe_constituency, safe_nation, party, role_label = ctx.safe_constituency, ctx.safe_nation, ctx.party, ctx.role_label
     calendar_year = 2027 + (int(p.get("career_term", 1)) - 1) * ELECTION_AFTER + int(p.get("career_year", 1)) - 1
-    season_names = ("SPR", "SUM", "BUD")
+    season_names = ("SPR", "SUM", "AUT")
     current_step = (int(p.get("career_year", 1)) - 1) * SESSIONS_PER_YEAR + int(p.get("career_session", 1)) - 1
     timeline_tiles = []
     for year_offset in range(ELECTION_AFTER):
@@ -2347,8 +2361,6 @@ def _render_timeline(p, ctx):
             elif tile_index == current_step and not p.get("game_over"):
                 classes.append("current")
             tile_label = season
-            if season == "BUD":
-                tile_label += " £"
             timeline_tiles.append(
                 f"<div class='{' '.join(classes)}'><small>{tile_label}</small><strong>{display_year}</strong></div>"
             )
