@@ -428,7 +428,7 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
     }
     electoral_seed = 73129 + sum((index + 1) * ord(char) for index, char in enumerate(f"{constituency}|{party}|{name}")) + int(st.session_state.get("seed", 12345))
     starting_majority = round(random.Random(electoral_seed).uniform(3.0, 14.0), 1)
-        ambition_spec = DATA["ambitions"].get(ambition, DATA["ambitions"]["policy_specialist"])
+    ambition_spec = DATA["ambitions"].get(ambition, DATA["ambitions"]["policy_specialist"])
     for key, value in ambition_spec["effects"].items():
         stats[key] = _clip(stats.get(key, 0) + value)
     return {
@@ -439,7 +439,6 @@ def new_profile(name="Alex Morgan", constituency="Aberafan Maesteg",
         "constituency_nation": record["nation"],
         "local_mandate": local_mandate,
         "starting_seat_margin": starting_majority,
-        "polling_baseline": None,
         "government_status": "opposition",
         "ambition": ambition if ambition in DATA["ambitions"] else "policy_specialist",
         "role": "mp",
