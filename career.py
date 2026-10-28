@@ -824,7 +824,23 @@ def _cast_vote(p, choice):
     def add(stat, amount):
         effects[stat] = effects.get(stat, 0) + amount
 
-    if whip == "Free vote":
+    if division.get("confidence_vote"):
+        if choice == whip:
+            add("party_trust", 3)
+            add("parliamentary_influence", 1)
+        elif choice == "Abstain":
+            add("party_trust", -10)
+            add("parliamentary_influence", -5)
+            add("integrity", 1)
+            add("public_profile", 2)
+        else:
+            add("party_trust", -16)
+            add("parliamentary_influence", -8)
+            add("integrity", 2)
+            add("public_profile", 5)
+        faction = p.setdefault("faction_standing", {})
+        faction["party_leadership"] = _clip(int(faction.get("party_leadership", 50)) - (8 if choice != whip else 0))
+    elif whip == "Free vote":
         add("integrity", 1)
         if choice != "Abstain":
             add("public_profile", 1)
@@ -841,6 +857,13 @@ def _cast_vote(p, choice):
         add("integrity", 2)
         add("public_profile", 3)
         add("parliamentary_influence", 2)
+
+    if division.get("confidence_vote") and division_result.get("result") == "Rejected":
+        add("party_trust", -8)
+        add("public_profile", -4)
+        p["government_status"] = "confidence_crisis"
+        if p.get("role") == "prime_minister":
+            p["confidence_crises"] = int(p.get("confidence_crises", 0)) + 1
 
     mandate_match = division.get("priority") == p.get("local_mandate")
     local_preference = division.get("local_preference", "Free vote")
@@ -2549,6 +2572,11 @@ def _render_desk_tab(p, ctx):
             st.markdown("<div class='mp-overline'>COMMONS DIVISION · WHIP CHECK</div>", unsafe_allow_html=True)
             st.markdown(f"### {division['title']}")
             st.write(division["description"])
+            if division.get("confidence_vote"):
+                st.error(
+                    "GOVERNMENT BUDGET · THREE-LINE CONFIDENCE WHIP. "
+                    "Rebellion carries severe party-trust and influence penalties; a defeated Budget triggers a government confidence crisis in this simulation."
+                )
             whip_label = "Free vote — decide according to your judgement." if whip == "Free vote" else f"Your party whip is **{whip}**."
             st.markdown(whip_label)
             st.caption(f"Local mandate: {MANDATES.get(p.get('local_mandate'), {}).get('label', p.get('local_mandate', 'Not set'))}. The result uses the full 650-seat model, but the party blocs and whip are simplified fictional gameplay—not a real Commons division.")
